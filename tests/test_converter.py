@@ -1,6 +1,7 @@
-import pytest
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import pytest
 
 from org_roam_to_obsidian.converter import OrgRoamConverter
 

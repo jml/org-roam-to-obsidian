@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Type Hints**: Use type annotations for function parameters and return values
 - **Error Handling**: Use specific exception types and descriptive error messages
 - **Testing**: pytest with fixtures and parametrized tests when appropriate
+- **Whitespace**: Avoid trailing whitespace
 
 ## Architecture Notes
 - CLI tool for converting Org-roam files to Obsidian Markdown
