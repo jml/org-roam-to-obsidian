@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "org-roam-to-obsidian"
+version = "0.1.0"
+description = "Converts Org-roam personal wiki into an Obsidian vault"
+requires-python = ">=3.11"
+dependencies = [
+    "click",
+    "pyyaml",
+    "markdown",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+org-roam-to-obsidian = "org_roam_to_obsidian.__main__:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+fixable = ["I"]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = ["tests"]
