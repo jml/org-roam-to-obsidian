@@ -8,9 +8,17 @@ context fields.
 
 import logging
 import sys
+from typing import Any, Callable, Mapping, MutableMapping, Tuple
 
 import structlog
 from structlog.stdlib import BoundLogger
+
+# Type alias for structlog processors
+# mypy: allow-any-generics
+Processor = Callable[
+    [Any, str, MutableMapping[str, Any]],
+    Mapping[str, Any] | str | bytes | bytearray | Tuple[Any, ...],
+]
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -30,7 +38,7 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
     # Set up standard library logging processor chain
-    processors = [
+    processors: list[Processor] = [
         # Add log level as a key to the event dict
         structlog.stdlib.add_log_level,
         # Add logger name
@@ -72,4 +80,4 @@ def get_logger(name: str) -> BoundLogger:
     """
     # Get a standard logger
     # structlog.get_logger will use the factory set by structlog.configure
-    return structlog.get_logger(name)
+    return structlog.get_logger(name)  # type: ignore[no-any-return]

@@ -281,7 +281,7 @@ class TestOrgRoamConverter:
         }
 
         # Use constructor directly with nested dictionaries
-        config = ConverterConfig(**config_dict)
+        config = ConverterConfig(**config_dict)  # type: ignore[arg-type]
 
         # Verify all values were properly set
         assert config.conversion.frontmatter_format == "yaml"

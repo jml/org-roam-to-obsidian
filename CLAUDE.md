@@ -10,6 +10,7 @@ This document contains critical information about working with this codebase. Fo
    - Running tools: `uv run tool`
    - Upgrading: `uv add --dev package --upgrade-package package`
    - FORBIDDEN: `uv pip install`, `@latest` syntax
+   - Use `uv run pip` instead of `pip`
 
 2. Code Quality
    - Type hints required for all code
