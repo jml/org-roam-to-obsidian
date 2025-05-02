@@ -66,7 +66,7 @@ class TestConfigClasses:
         assert config.link_format == "[[${filename}]]"
 
     def test_conversion_config_validation(self):
-        """ConversionConfig validation prevents invalid format and link configurations."""
+        """ConversionConfig validation prevents invalid format and link configs."""
         # Valid format
         config = ConversionConfig(frontmatter_format="json")
         assert config.frontmatter_format == "json"
@@ -148,7 +148,7 @@ class TestOrgRoamConverter:
         assert converter.dry_run is True
 
     def test_from_paths(self, temp_source, temp_dir):
-        """Factory method creates converter instance from source and destination paths."""
+        """Factory method creates converter from source and destination paths."""
         converter = OrgRoamConverter.from_paths(
             source=temp_source,
             destination=temp_dir,
@@ -160,7 +160,7 @@ class TestOrgRoamConverter:
         assert converter.dry_run is True
 
     def test_default_config(self, temp_source, temp_dir):
-        """Default configuration sets expected values for all nested configuration objects."""
+        """Default configuration sets expected values for all nested config objects."""
         config = ConverterConfig(
             conversion=ConversionConfig(),
             attachments=AttachmentsConfig(),
@@ -191,7 +191,7 @@ class TestOrgRoamConverter:
         assert converter.config.formatting.convert_code_blocks is False
 
     def test_invalid_config_handling(self, temp_source, temp_dir):
-        """Configuration validation fails fast when invalid frontmatter or paths are specified."""
+        """Config validation fails fast with invalid frontmatter or paths."""
         # Create an invalid config file - invalid frontmatter format
         invalid_format_content = """
         [conversion]
@@ -260,7 +260,7 @@ class TestOrgRoamConverter:
         assert "Invalid configuration format" in error_msg
 
     def test_constructor_handles_nested_dicts(self):
-        """Constructor transparently converts nested dictionaries to configuration objects."""
+        """Constructor converts nested dictionaries to configuration objects."""
         # Create a dictionary with nested dictionaries
         config_dict = {
             "conversion": {

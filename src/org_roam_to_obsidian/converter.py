@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
+from org_roam_to_obsidian.database import OrgRoamDatabase
 from org_roam_to_obsidian.logging import get_logger
 
 log = get_logger(__name__)
@@ -148,9 +149,26 @@ class OrgRoamConverter:
             dry_run=self.dry_run,
         )
 
-        # TODO: Implement conversion logic
-        # 1. Read org-roam database
-        # 2. Process each org file
-        # 3. Write converted markdown to destination
+        # Open the org-roam database
+        with OrgRoamDatabase(self.source) as db:
+            # Get all files tracked by org-roam
+            log.info("reading_files")
+            files = list(db.get_all_files())
+            log.info("files_read", count=len(files))
+
+            # Get all nodes from the database
+            log.info("reading_nodes")
+            nodes = list(db.get_all_nodes())
+            log.info("nodes_read", count=len(nodes))
+
+            # Create ID to filename map for link conversion
+            log.info("creating_id_map")
+            id_to_file = db.create_id_to_filename_map()
+            log.info("id_map_created", count=len(id_to_file))
+
+            # TODO: Complete conversion implementation
+            # 1. Process each org file with pandoc
+            # 2. Transform links using the ID-to-filename map
+            # 3. Write converted markdown to destination
 
         log.info("conversion_complete")
