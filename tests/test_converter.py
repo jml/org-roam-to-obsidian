@@ -191,27 +191,70 @@ class TestOrgRoamConverter:
         assert converter.config.formatting.convert_code_blocks is False
 
     def test_invalid_config_handling(self, temp_source, temp_dir):
-        """Invalid configurations fall back to defaults to maintain stability."""
-        # Create an invalid config file
-        invalid_config_content = """
+        """Invalid configurations raise errors instead of falling back to defaults."""
+        # Create an invalid config file - invalid frontmatter format
+        invalid_format_content = """
         [conversion]
         frontmatter_format = "invalid"
-        
+        """
+        invalid_format_path = temp_dir / "invalid_format.toml"
+        with open(invalid_format_path, "w") as f:
+            f.write(invalid_format_content)
+
+        # Should raise ValidationError for invalid frontmatter format
+        with pytest.raises(ValidationError) as exc_info:
+            OrgRoamConverter.from_paths(
+                source=temp_source,
+                destination=temp_dir,
+                config_path=invalid_format_path,
+            )
+        error_msg = str(exc_info.value)
+        assert "Frontmatter format must be one of" in error_msg
+
+        # Create an invalid config file - invalid attachment folder
+        invalid_path_content = """
         [attachments]
         attachment_folder = "invalid/path"
         """
+        invalid_path_config = temp_dir / "invalid_path.toml"
+        with open(invalid_path_config, "w") as f:
+            f.write(invalid_path_content)
 
-        invalid_config_path = temp_dir / "invalid_config.toml"
-        with open(invalid_config_path, "w") as f:
-            f.write(invalid_config_content)
+        # Should raise ValidationError for invalid attachment folder
+        with pytest.raises(ValidationError) as exc_info:
+            OrgRoamConverter.from_paths(
+                source=temp_source,
+                destination=temp_dir,
+                config_path=invalid_path_config,
+            )
+        error_msg = str(exc_info.value)
+        assert "Attachment folder cannot contain path separators" in error_msg
 
-        # Should fall back to defaults
-        converter = OrgRoamConverter.from_paths(
-            source=temp_source,
-            destination=temp_dir,
-            config_path=invalid_config_path,
-        )
+    def test_nonexistent_config_file(self, temp_source, temp_dir):
+        """Non-existent config file raises FileNotFoundError."""
+        nonexistent_path = temp_dir / "nonexistent_config.toml"
 
-        # Should have fallen back to default configuration
-        assert converter.config.conversion.frontmatter_format == "yaml"
-        assert converter.config.attachments.attachment_folder == "assets"
+        with pytest.raises(FileNotFoundError) as exc_info:
+            OrgRoamConverter.from_paths(
+                source=temp_source,
+                destination=temp_dir,
+                config_path=nonexistent_path,
+            )
+        error_msg = str(exc_info.value)
+        assert "Config file not found" in error_msg
+
+    def test_invalid_config_format(self, temp_source, temp_dir):
+        """Invalid config format raises ValueError."""
+        # Create an empty config file
+        empty_config_path = temp_dir / "empty_config.toml"
+        with open(empty_config_path, "w") as f:
+            f.write("")
+
+        with pytest.raises(ValueError) as exc_info:
+            OrgRoamConverter.from_paths(
+                source=temp_source,
+                destination=temp_dir,
+                config_path=empty_config_path,
+            )
+        error_msg = str(exc_info.value)
+        assert "Invalid configuration format" in error_msg

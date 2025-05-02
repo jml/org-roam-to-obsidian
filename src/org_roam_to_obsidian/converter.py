@@ -90,36 +90,18 @@ class ConverterConfig:
     def from_file(cls, config_path: Path) -> "ConverterConfig":
         """Load configuration from a TOML file."""
         if not config_path.exists():
-            log.warning(f"Config file not found: {config_path}, using defaults")
-            return cls(
-                conversion=ConversionConfig(),
-                attachments=AttachmentsConfig(),
-                formatting=FormattingConfig(),
-            )
+            raise FileNotFoundError(f"Config file not found: {config_path}")
 
-        try:
-            # tomllib requires binary mode
-            with open(config_path, "rb") as f:
-                config_dict = tomllib.load(f)
+        # tomllib requires binary mode
+        with open(config_path, "rb") as f:
+            config_dict = tomllib.load(f)
 
-            if not config_dict or not isinstance(config_dict, dict):
-                log.warning(f"Invalid configuration in {config_path}, using defaults")
-                return cls(
-                    conversion=ConversionConfig(),
-                    attachments=AttachmentsConfig(),
-                    formatting=FormattingConfig(),
-                )
+        if not config_dict or not isinstance(config_dict, dict):
+            raise ValueError(f"Invalid configuration format in {config_path}")
 
-            log.info(f"Loaded configuration from {config_path}")
-            return cls.from_dict(config_dict)
-        # ValidationError will propagate to caller without catch and re-raise
-        except Exception as e:
-            log.error(f"Error loading config file: {e}")
-            return cls(
-                conversion=ConversionConfig(),
-                attachments=AttachmentsConfig(),
-                formatting=FormattingConfig(),
-            )
+        log.info(f"Loaded configuration from {config_path}")
+        # ValidationError from Pydantic will propagate to caller
+        return cls.from_dict(config_dict)
 
 
 @dataclass(frozen=True)
