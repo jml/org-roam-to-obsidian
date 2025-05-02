@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -102,7 +101,7 @@ class OrgRoamConverter:
         cls,
         source: Path,
         destination: Path,
-        config_path: Optional[Path] = None,
+        config_path: Path | None = None,
         dry_run: bool = False,
     ) -> "OrgRoamConverter":
         """Create a converter from paths, loading configuration if provided."""

@@ -45,7 +45,7 @@ def setup_logging(verbose: bool) -> None:
     "--verbose", "-v", is_flag=True, help="Show detailed conversion information"
 )
 def main(
-    source: Path, destination: Path, config: Path, dry_run: bool, verbose: bool
+    source: Path, destination: Path, config: Path | None, dry_run: bool, verbose: bool
 ) -> int:
     """Convert Org-roam files to Obsidian markdown."""
     setup_logging(verbose)
