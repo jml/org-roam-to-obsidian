@@ -89,6 +89,13 @@ class ConverterConfig:
         return cls(**config_dict)
 
 
+DEFAULT_CONFIG = ConverterConfig(
+    conversion=ConversionConfig(),
+    attachments=AttachmentsConfig(),
+    formatting=FormattingConfig(),
+)
+
+
 @dataclass(frozen=True)
 class OrgRoamConverter:
     """Converts Org-roam files to Obsidian markdown format."""
@@ -119,12 +126,7 @@ class OrgRoamConverter:
         dry_run: bool = False,
     ) -> "OrgRoamConverter":
         """Create a converter from paths, loading configuration if provided."""
-        # Create default config
-        config = ConverterConfig(
-            conversion=ConversionConfig(),
-            attachments=AttachmentsConfig(),
-            formatting=FormattingConfig(),
-        )
+        config = DEFAULT_CONFIG
 
         # Load config from file if provided
         if config_path is not None:
