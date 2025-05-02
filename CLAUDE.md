@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Naming**: snake_case for variables/functions, PascalCase for classes
 - **Classes**: Use frozen dataclasses (`@dataclass(frozen=True)`) for data-oriented classes
 - **Type Hints**: Use type annotations for function parameters and return values
+- **Type Annotations**: Use list, dict, etc. for types rather than importing List, Dict, etc from typing
 - **Error Handling**: Use specific exception types and descriptive error messages
 - **Testing**: pytest with fixtures and parametrized tests when appropriate
 - **Whitespace**: Avoid trailing whitespace

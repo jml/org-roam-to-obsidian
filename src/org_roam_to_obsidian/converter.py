@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import yaml
 
@@ -44,7 +44,7 @@ class ConverterConfig:
     formatting: FormattingConfig = field(default_factory=FormattingConfig)
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "ConverterConfig":
+    def from_dict(cls, config_dict: dict) -> "ConverterConfig":
         """Create a config object from a dictionary."""
         conversion_config = ConversionConfig(**config_dict.get("conversion", {}))
         attachments_config = AttachmentsConfig(**config_dict.get("attachments", {}))
