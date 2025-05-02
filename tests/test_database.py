@@ -84,8 +84,18 @@ def sample_db_path():
         conn.executemany(
             "INSERT INTO files (file, hash, atime, mtime) VALUES (?, ?, ?, ?)",
             [
-                ("/path/to/file1.org", "hash1", "(25821 50943 0 0)", "(25821 50943 0 0)"),
-                ("/path/to/file2.org", "hash2", "(26316 12970 0 0)", "(26316 12970 0 0)"),
+                (
+                    "/path/to/file1.org",
+                    "hash1",
+                    "(25821 50943 0 0)",
+                    "(25821 50943 0 0)",
+                ),
+                (
+                    "/path/to/file2.org",
+                    "hash2",
+                    "(26316 12970 0 0)",
+                    "(26316 12970 0 0)",
+                ),
             ],
         )
 
@@ -183,16 +193,20 @@ def test_orgroamnode_creation():
         refs=["ref1", "ref2"],
     )
 
-    assert node.id == "abc123"
-    assert node.file_path == Path("/path/to/file.org")
-    assert node.title == "Test Node"
-    assert node.level == 1
-    assert node.pos == 100
-    assert node.olp == ["Parent", "Child"]
-    assert node.properties == {"CREATED": "20220101"}
-    assert node.tags == ["tag1", "tag2"]
-    assert node.aliases == ["alias1", "alias2"]
-    assert node.refs == ["ref1", "ref2"]
+    expected = OrgRoamNode(
+        id="abc123",
+        file_path=Path("/path/to/file.org"),
+        title="Test Node",
+        level=1,
+        pos=100,
+        olp=["Parent", "Child"],
+        properties={"CREATED": "20220101"},
+        tags=["tag1", "tag2"],
+        aliases=["alias1", "alias2"],
+        refs=["ref1", "ref2"],
+    )
+
+    assert node == expected
 
 
 def test_orgroamlink_creation():
@@ -204,10 +218,14 @@ def test_orgroamlink_creation():
         properties={"position": 200},
     )
 
-    assert link.source_id == "abc123"
-    assert link.dest_id == "def456"
-    assert link.type == "id"
-    assert link.properties == {"position": 200}
+    expected = OrgRoamLink(
+        source_id="abc123",
+        dest_id="def456",
+        type="id",
+        properties={"position": 200},
+    )
+
+    assert link == expected
 
 
 def test_orgroamfile_creation():
@@ -218,11 +236,15 @@ def test_orgroamfile_creation():
         atime="(26316 12970 418226 295000)",
         mtime="(25821 50943 0 0)",
     )
-    
-    assert file.file_path == Path("/path/to/file.org")
-    assert file.hash == "abcdef1234567890"
-    assert file.atime == "(26316 12970 418226 295000)"
-    assert file.mtime == "(25821 50943 0 0)"
+
+    expected = OrgRoamFile(
+        file_path=Path("/path/to/file.org"),
+        hash="abcdef1234567890",
+        atime="(26316 12970 418226 295000)",
+        mtime="(25821 50943 0 0)",
+    )
+
+    assert file == expected
 
 
 def test_orgroamdatabase_init_file_not_found():
@@ -240,17 +262,22 @@ def test_get_all_files(sample_db_path):
 
     assert len(files) == 2
 
-    assert isinstance(files[0], OrgRoamFile)
-    assert files[0].file_path == Path("/path/to/file1.org")
-    assert files[0].hash == "hash1"
-    assert files[0].atime == "(25821 50943 0 0)"
-    assert files[0].mtime == "(25821 50943 0 0)"
+    expected_files = [
+        OrgRoamFile(
+            file_path=Path("/path/to/file1.org"),
+            hash="hash1",
+            atime="(25821 50943 0 0)",
+            mtime="(25821 50943 0 0)",
+        ),
+        OrgRoamFile(
+            file_path=Path("/path/to/file2.org"),
+            hash="hash2",
+            atime="(26316 12970 0 0)",
+            mtime="(26316 12970 0 0)",
+        ),
+    ]
 
-    assert isinstance(files[1], OrgRoamFile)
-    assert files[1].file_path == Path("/path/to/file2.org")
-    assert files[1].hash == "hash2"
-    assert files[1].atime == "(26316 12970 0 0)"
-    assert files[1].mtime == "(26316 12970 0 0)"
+    assert files == expected_files
 
 
 def test_get_all_nodes(sample_db_path):
