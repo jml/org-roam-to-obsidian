@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import click
+from pydantic import ValidationError
 
 from org_roam_to_obsidian.converter import OrgRoamConverter
 
@@ -36,7 +37,7 @@ def setup_logging(verbose: bool) -> None:
     "--config",
     "-c",
     type=click.Path(exists=True, path_type=Path),
-    help="Path to a config file (optional)",
+    help="Path to a TOML config file (optional)",
 )
 @click.option(
     "--dry-run", is_flag=True, help="Test the conversion without writing files"
@@ -51,12 +52,21 @@ def main(
     setup_logging(verbose)
 
     try:
-        converter = OrgRoamConverter.from_paths(
-            source=source,
-            destination=destination,
-            config_path=config,
-            dry_run=dry_run,
-        )
+        try:
+            converter = OrgRoamConverter.from_paths(
+                source=source,
+                destination=destination,
+                config_path=config,
+                dry_run=dry_run,
+            )
+        except ValidationError as e:
+            # Handle validation errors separately for better user experience
+            log.error("Configuration validation failed:")
+            for error in e.errors():
+                error_path = " -> ".join(str(loc) for loc in error["loc"])
+                log.error(f"  - {error_path}: {error['msg']}")
+            click.echo("Please fix the configuration errors and try again.", err=True)
+            return 1
 
         converter.run()
         return 0

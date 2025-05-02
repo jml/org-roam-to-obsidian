@@ -4,6 +4,10 @@
 
 `org-roam-to-obsidian` is a command-line tool that converts your org-roam personal wiki into an Obsidian vault, preserving your notes, links, and metadata while transforming them into Obsidian's Markdown format.
 
+## Requirements
+
+- Python 3.11 or higher (required for standard library TOML support)
+
 ## Features
 
 - Converts Org-roam `.org` files to Obsidian-compatible Markdown
@@ -35,24 +39,24 @@ Options:
 
 ## Configuration
 
-Create a `config.yml` file to customize conversion behavior:
+Create a `config.toml` file to customize conversion behavior:
 
-```yaml
+```toml
 # Default configuration
-conversion:
-  preserve_creation_date: true
-  frontmatter_format: yaml
-  convert_tags: true
-  link_format: "[[${filename}]]"
+[conversion]
+preserve_creation_date = true
+frontmatter_format = "yaml"
+convert_tags = true
+link_format = "[[${filename}]]"
 
-attachments:
-  copy_attachments: true
-  attachment_folder: "assets"
+[attachments]
+copy_attachments = true
+attachment_folder = "assets"
 
-formatting:
-  convert_tables: true
-  convert_code_blocks: true
-  convert_latex: true
+[formatting]
+convert_tables = true
+convert_code_blocks = true
+convert_latex = true
 ```
 
 ## Examples
@@ -68,7 +72,7 @@ org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault
 
 ```bash
 # Use custom configuration
-org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault -c my-config.yml
+org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault -c my-config.toml
 ```
 
 ## Conversion Details

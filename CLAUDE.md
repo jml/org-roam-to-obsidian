@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Single test: `pytest tests/test_file.py::test_function -v`
 
 ## Code Style Guidelines
-- **Python Version**: 3.11+
+- **Python Version**: Strictly 3.11+ (required for stdlib tomllib)
 - **Package Manager**: uv
 - **Formatting**: ruff format with 88 character line length (Black style)
 - **Linting**: ruff with isort for import sorting
@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Classes**: Use frozen dataclasses (`@dataclass(frozen=True)`) for data-oriented classes
 - **Type Hints**: Use type annotations for function parameters and return values
 - **Type Annotations**: Use list, dict, etc. for types rather than importing List, Dict, etc from typing
+- **Parameterized Types**: Always fully qualify parameterized types (e.g., `dict[str, int]` instead of just `dict`)
 - **Optional Types**: Use `Type | None` syntax rather than `Optional[Type]` for optional values
 - **Error Handling**: Use specific exception types and descriptive error messages
 - **Testing**: pytest with fixtures and parametrized tests when appropriate

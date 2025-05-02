@@ -9,8 +9,8 @@ description = "Converts Org-roam personal wiki into an Obsidian vault"
 requires-python = ">=3.11"
 dependencies = [
     "click",
-    "pyyaml",
     "markdown",
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -18,7 +18,6 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
-    "types-PyYAML",
 ]
 
 [project.scripts]
@@ -48,6 +47,20 @@ check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
 strict_optional = true
+disallow_any_generics = false  # We need Any in some generic types
+disallow_untyped_calls = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+# Enforce fully qualified types 
+disallow_subclassing_any = true
+# Prevent x: list instead of x: list[int]
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"

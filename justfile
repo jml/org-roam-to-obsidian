@@ -8,12 +8,16 @@ default:
 install:
     uv pip install -e .
 
-# Run all checks (format, lint, typecheck, test)
-check: format lint typecheck test
+# Run all checks (format, lint, strict typecheck, test)
+check: format lint typecheck-strict test
 
 # Run type checking with mypy
 typecheck:
     uv run mypy src tests
+
+# Run type checking with mypy and disallow_generic_any flag enabled
+typecheck-strict:
+    uv run mypy --disallow-any-generics src tests
 
 # Format code with ruff
 format:
@@ -25,11 +29,11 @@ lint:
 
 # Run tests with pytest
 test:
-    pytest
+    uv run pytest
 
 # Run a specific test
 test-one TEST:
-    pytest {{TEST}} -v
+    uv run pytest {{TEST}} -v
 
 # Run the application
 run SOURCE DEST *ARGS:
