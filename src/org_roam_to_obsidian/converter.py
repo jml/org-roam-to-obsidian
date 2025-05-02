@@ -68,10 +68,6 @@ class ConverterConfig:
     attachments: AttachmentsConfig
     formatting: FormattingConfig
 
-    def __post_init__(self) -> None:
-        """Initialize default values if needed."""
-        # With Pydantic dataclasses, values should never be None if they have defaults
-
     @classmethod
     def from_dict(cls, config_dict: dict[str, dict[str, Any]]) -> "ConverterConfig":
         """Create a config object from a dictionary."""
