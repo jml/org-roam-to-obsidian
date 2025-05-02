@@ -87,7 +87,7 @@ class OrgRoamConverter:
     config: ConverterConfig = field(default_factory=ConverterConfig)
     dry_run: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validation and setup after initialization."""
         if not self.source.exists():
             raise FileNotFoundError(f"Source database not found: {self.source}")

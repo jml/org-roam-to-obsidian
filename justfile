@@ -8,8 +8,12 @@ default:
 install:
     uv pip install -e .
 
-# Run all checks (format, lint, test)
-check: format lint test
+# Run all checks (format, lint, typecheck, test)
+check: format lint typecheck test
+
+# Run type checking with mypy
+typecheck:
+    uv run mypy src tests
 
 # Format code with ruff
 format:
