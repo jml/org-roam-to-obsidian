@@ -1,4 +1,3 @@
-import logging
 import tomllib  # Standard library in Python 3.11+
 from pathlib import Path
 from typing import Any
@@ -6,7 +5,9 @@ from typing import Any
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
-log = logging.getLogger(__name__)
+from org_roam_to_obsidian.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,7 @@ class ConverterConfig:
         if not config_dict or not isinstance(config_dict, dict):
             raise ValueError(f"Invalid configuration format in {config_path}")
 
-        log.info(f"Loaded configuration from {config_path}")
+        log.info("loaded_configuration", config_path=str(config_path))
         # ValidationError from Pydantic will propagate to caller
         return cls.from_dict(config_dict)
 
@@ -154,12 +155,16 @@ class OrgRoamConverter:
 
     def run(self) -> None:
         """Run the conversion process."""
-        log.info(f"Starting conversion from {self.source} to {self.destination}")
-        log.info("Dry run mode" if self.dry_run else "Live conversion mode")
+        log.info(
+            "starting_conversion",
+            source=str(self.source),
+            destination=str(self.destination),
+            dry_run=self.dry_run,
+        )
 
         # TODO: Implement conversion logic
         # 1. Read org-roam database
         # 2. Process each org file
         # 3. Write converted markdown to destination
 
-        log.info("Conversion complete")
+        log.info("conversion_complete")

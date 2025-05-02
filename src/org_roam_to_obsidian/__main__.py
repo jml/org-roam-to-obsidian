@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
+"""
+CLI for converting Org-roam files to Obsidian markdown.
 
-import logging
+This module serves as the entry point for the command-line interface.
+It handles command-line arguments, initializes logging, and executes
+the conversion process.
+
+The module uses structlog for structured logging, which provides machine-readable
+logs in JSON format by default, or human-friendly colored output in verbose mode.
+To use structured logging in your own code:
+
+1. Import the logger: `from org_roam_to_obsidian.logging import get_logger`
+2. Create a logger: `log = get_logger(__name__)`
+3. Log using key-value pairs: `log.info("event_name", key1="value1", key2="value2")`
+"""
+
 import sys
 from pathlib import Path
 
@@ -8,14 +22,9 @@ import click
 from pydantic import ValidationError
 
 from org_roam_to_obsidian.converter import OrgRoamConverter
+from org_roam_to_obsidian.logging import get_logger, setup_logging
 
-log = logging.getLogger(__name__)
-
-
-def setup_logging(verbose: bool) -> None:
-    """Configure logging based on verbosity level."""
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
+log = get_logger(__name__)
 
 
 @click.command()
@@ -61,10 +70,10 @@ def main(
             )
         except ValidationError as e:
             # Handle validation errors separately for better user experience
-            log.error("Configuration validation failed:")
+            log.error("configuration_validation_failed")
             for error in e.errors():
                 error_path = " -> ".join(str(loc) for loc in error["loc"])
-                log.error(f"  - {error_path}: {error['msg']}")
+                log.error("validation_error", path=error_path, message=error["msg"])
             click.echo("Please fix the configuration errors and try again.", err=True)
             return 1
 
@@ -72,9 +81,9 @@ def main(
         return 0
 
     except Exception as e:
-        log.error(f"Error: {e}")
+        log.error("conversion_failed", error=str(e))
         if verbose:
-            log.exception("Detailed error information:")
+            log.exception("detailed_error_information")
         return 1
 
 
