@@ -1,6 +1,5 @@
 import tomllib  # Standard library in Python 3.11+
 from pathlib import Path
-from typing import Any
 
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
@@ -69,23 +68,7 @@ class ConverterConfig:
     attachments: AttachmentsConfig
     formatting: FormattingConfig
 
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, dict[str, Any]]) -> "ConverterConfig":
-        """Create a config object from a dictionary."""
-        # Create configs from dictionary sections
-        conversion_dict = config_dict.get("conversion", {})
-        attachments_dict = config_dict.get("attachments", {})
-        formatting_dict = config_dict.get("formatting", {})
-
-        conversion_config = ConversionConfig(**conversion_dict)
-        attachments_config = AttachmentsConfig(**attachments_dict)
-        formatting_config = FormattingConfig(**formatting_dict)
-
-        return cls(
-            conversion=conversion_config,
-            attachments=attachments_config,
-            formatting=formatting_config,
-        )
+    # The constructor can handle nested dictionaries directly
 
     @classmethod
     def from_file(cls, config_path: Path) -> "ConverterConfig":
@@ -102,7 +85,8 @@ class ConverterConfig:
 
         log.info("loaded_configuration", config_path=str(config_path))
         # ValidationError from Pydantic will propagate to caller
-        return cls.from_dict(config_dict)
+        # We can directly pass the dictionary to the constructor
+        return cls(**config_dict)
 
 
 @dataclass(frozen=True)

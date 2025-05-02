@@ -258,3 +258,33 @@ class TestOrgRoamConverter:
             )
         error_msg = str(exc_info.value)
         assert "Invalid configuration format" in error_msg
+
+    def test_constructor_handles_nested_dicts(self):
+        """Test if constructor automatically handles nested dictionaries."""
+        # Create a dictionary with nested dictionaries
+        config_dict = {
+            "conversion": {
+                "frontmatter_format": "yaml",
+                "preserve_creation_date": True,
+                "convert_tags": True,
+                "link_format": "[[${filename}]]",
+            },
+            "attachments": {
+                "copy_attachments": True,
+                "attachment_folder": "test_assets",
+            },
+            "formatting": {
+                "convert_tables": False,
+                "convert_code_blocks": True,
+                "convert_latex": False,
+            },
+        }
+
+        # Use constructor directly with nested dictionaries
+        config = ConverterConfig(**config_dict)
+
+        # Verify all values were properly set
+        assert config.conversion.frontmatter_format == "yaml"
+        assert config.attachments.attachment_folder == "test_assets"
+        assert config.formatting.convert_tables is False
+        assert config.formatting.convert_code_blocks is True
