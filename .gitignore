@@ -28,3 +28,4 @@ ENV/
 
 # OS specific files
 .DS_Store
+**/.claude/settings.local.json
