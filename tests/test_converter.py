@@ -58,7 +58,7 @@ class TestConfigClasses:
     """Test the configuration dataclasses."""
 
     def test_conversion_config_defaults(self):
-        """Test ConversionConfig default values."""
+        """ConversionConfig initializes with sensible defaults."""
         config = ConversionConfig()
         assert config.preserve_creation_date is True
         assert config.frontmatter_format == "yaml"
@@ -66,7 +66,7 @@ class TestConfigClasses:
         assert config.link_format == "[[${filename}]]"
 
     def test_conversion_config_validation(self):
-        """Test validation for ConversionConfig."""
+        """ConversionConfig rejects invalid configurations to prevent broken exports."""
         # Valid format
         config = ConversionConfig(frontmatter_format="json")
         assert config.frontmatter_format == "json"
@@ -177,7 +177,7 @@ class TestOrgRoamConverter:
         assert converter.config.attachments.attachment_folder == "assets"
 
     def test_from_toml_config(self, temp_source, temp_dir, temp_config_file):
-        """Test loading configuration from a TOML file."""
+        """TOML configuration files customize converter behavior."""
         converter = OrgRoamConverter.from_paths(
             source=temp_source,
             destination=temp_dir,
@@ -191,7 +191,7 @@ class TestOrgRoamConverter:
         assert converter.config.formatting.convert_code_blocks is False
 
     def test_invalid_config_handling(self, temp_source, temp_dir):
-        """Test that invalid configurations are handled gracefully."""
+        """Invalid configurations fall back to defaults to maintain stability."""
         # Create an invalid config file
         invalid_config_content = """
         [conversion]

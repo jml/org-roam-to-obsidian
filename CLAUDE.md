@@ -28,7 +28,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Handle exceptions only where you can take meaningful action
   - Provide reasonable fallbacks for recoverable errors
   - Log errors with enough context to diagnose the issue
-- **Testing**: pytest with fixtures and parametrized tests when appropriate
+- **Testing**:
+  - Use pytest with fixtures and parametrized tests when appropriate
+  - Test docstrings:
+    - Focus on behavior being tested, not implementation
+    - Remove redundant phrases like "Test that..." or "Check that..."
+    - Omit words like "correctly," "properly," or "as expected"
+    - Explain why the test matters when it's not obvious
+    - When possible, provide context about the test's significance
+    - Keep concise but informative - choose clarity over brevity
 - **Whitespace**: Avoid trailing whitespace
 
 ## Architecture Notes
