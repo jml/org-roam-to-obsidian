@@ -22,7 +22,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Type Annotations**: Use list, dict, etc. for types rather than importing List, Dict, etc from typing
 - **Parameterized Types**: Always fully qualify parameterized types (e.g., `dict[str, int]` instead of just `dict`)
 - **Optional Types**: Use `Type | None` syntax rather than `Optional[Type]` for optional values
-- **Error Handling**: Use specific exception types and descriptive error messages
+- **Error Handling**:
+  - Use specific exception types and descriptive error messages
+  - Never catch an exception just to log it and re-raise; let it propagate naturally
+  - Handle exceptions only where you can take meaningful action
+  - Provide reasonable fallbacks for recoverable errors
+  - Log errors with enough context to diagnose the issue
 - **Testing**: pytest with fixtures and parametrized tests when appropriate
 - **Whitespace**: Avoid trailing whitespace
 

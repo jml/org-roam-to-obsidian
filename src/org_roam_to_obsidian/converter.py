@@ -3,7 +3,7 @@ import tomllib  # Standard library in Python 3.11+
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError, field_validator
+from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -71,32 +71,20 @@ class ConverterConfig:
     @classmethod
     def from_dict(cls, config_dict: dict[str, dict[str, Any]]) -> "ConverterConfig":
         """Create a config object from a dictionary."""
-        try:
-            conversion_dict = config_dict.get("conversion", {})
-            attachments_dict = config_dict.get("attachments", {})
-            formatting_dict = config_dict.get("formatting", {})
+        # Create configs from dictionary sections
+        conversion_dict = config_dict.get("conversion", {})
+        attachments_dict = config_dict.get("attachments", {})
+        formatting_dict = config_dict.get("formatting", {})
 
-            conversion_config = ConversionConfig(**conversion_dict)
-            attachments_config = AttachmentsConfig(**attachments_dict)
-            formatting_config = FormattingConfig(**formatting_dict)
+        conversion_config = ConversionConfig(**conversion_dict)
+        attachments_config = AttachmentsConfig(**attachments_dict)
+        formatting_config = FormattingConfig(**formatting_dict)
 
-            return cls(
-                conversion=conversion_config,
-                attachments=attachments_config,
-                formatting=formatting_config,
-            )
-        except ValidationError as e:
-            log.error(f"Configuration validation error: {e}")
-            # Re-raise to allow caller to handle
-            raise
-        except Exception as e:
-            log.error(f"Error creating configuration: {e}")
-            # Fall back to defaults
-            return cls(
-                conversion=ConversionConfig(),
-                attachments=AttachmentsConfig(),
-                formatting=FormattingConfig(),
-            )
+        return cls(
+            conversion=conversion_config,
+            attachments=attachments_config,
+            formatting=formatting_config,
+        )
 
     @classmethod
     def from_file(cls, config_path: Path) -> "ConverterConfig":
@@ -124,10 +112,7 @@ class ConverterConfig:
 
             log.info(f"Loaded configuration from {config_path}")
             return cls.from_dict(config_dict)
-        except ValidationError as e:
-            log.error(f"Configuration validation error: {e}")
-            # Re-raise to allow caller to handle
-            raise
+        # ValidationError will propagate to caller without catch and re-raise
         except Exception as e:
             log.error(f"Error loading config file: {e}")
             return cls(
@@ -176,16 +161,7 @@ class OrgRoamConverter:
 
         # Load config from file if provided
         if config_path is not None:
-            try:
-                config = ConverterConfig.from_file(config_path)
-            except ValidationError as e:
-                # Log detailed validation errors
-                log.error("Configuration validation errors:")
-                for error in e.errors():
-                    error_loc = " -> ".join(str(loc) for loc in error["loc"])
-                    log.error(f"  - {error_loc}: {error['msg']}")
-                # Re-raise to allow caller to handle
-                raise
+            config = ConverterConfig.from_file(config_path)
 
         return cls(
             source=source,

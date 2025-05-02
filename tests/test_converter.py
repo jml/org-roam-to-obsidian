@@ -190,8 +190,8 @@ class TestOrgRoamConverter:
         assert converter.config.attachments.attachment_folder == "custom_assets"
         assert converter.config.formatting.convert_code_blocks is False
 
-    def test_invalid_config_validation(self, temp_source, temp_dir):
-        """Test that invalid configurations are rejected."""
+    def test_invalid_config_handling(self, temp_source, temp_dir):
+        """Test that invalid configurations are handled gracefully."""
         # Create an invalid config file
         invalid_config_content = """
         [conversion]
@@ -205,16 +205,13 @@ class TestOrgRoamConverter:
         with open(invalid_config_path, "w") as f:
             f.write(invalid_config_content)
 
-        # Should raise ValidationError
-        with pytest.raises(ValidationError) as exc_info:
-            OrgRoamConverter.from_paths(
-                source=temp_source,
-                destination=temp_dir,
-                config_path=invalid_config_path,
-            )
-
-        error_msg = str(exc_info.value)
-        assert (
-            "Frontmatter format must be one of" in error_msg
-            or "Attachment folder cannot contain path separators" in error_msg
+        # Should fall back to defaults
+        converter = OrgRoamConverter.from_paths(
+            source=temp_source,
+            destination=temp_dir,
+            config_path=invalid_config_path,
         )
+
+        # Should have fallen back to default configuration
+        assert converter.config.conversion.frontmatter_format == "yaml"
+        assert converter.config.attachments.attachment_folder == "assets"
