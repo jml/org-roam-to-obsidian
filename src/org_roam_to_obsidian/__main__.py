@@ -51,7 +51,7 @@ def main(
     setup_logging(verbose)
 
     try:
-        converter = OrgRoamConverter(
+        converter = OrgRoamConverter.from_paths(
             source=source,
             destination=destination,
             config_path=config,

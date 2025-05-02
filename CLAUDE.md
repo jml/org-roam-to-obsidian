@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Linting**: ruff with isort for import sorting
 - **Imports**: Group imports (standard library, third-party, local) with blank lines between groups
 - **Naming**: snake_case for variables/functions, PascalCase for classes
+- **Classes**: Use frozen dataclasses (`@dataclass(frozen=True)`) for data-oriented classes
 - **Type Hints**: Use type annotations for function parameters and return values
 - **Error Handling**: Use specific exception types and descriptive error messages
 - **Testing**: pytest with fixtures and parametrized tests when appropriate
