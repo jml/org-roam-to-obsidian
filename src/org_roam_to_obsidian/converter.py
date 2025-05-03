@@ -118,8 +118,6 @@ class OrgRoamConverter:
             # but we can create the directory if needed
             self.destination.mkdir(parents=True, exist_ok=True)
 
-        # With Pydantic dataclasses, validation happens at initialization
-
     @classmethod
     def from_paths(
         cls,
@@ -160,7 +158,7 @@ class OrgRoamConverter:
         # Use pypandoc to convert from org to markdown
         # 'gfm' is GitHub-flavored Markdown which is close to Obsidian markdown
         markdown_content = pypandoc.convert_file(
-            str(src_file),
+            src_file,
             "gfm",  # GitHub-flavored Markdown
             format="org",
         )
@@ -217,9 +215,6 @@ class OrgRoamConverter:
 
                 # Convert org to markdown
                 markdown_content = self._convert_file(src_file)
-                if not markdown_content:
-                    log.warning("empty_conversion_result", source=str(src_file))
-                    continue
 
                 # Write to destination
                 with open(dest_file, "w") as f:

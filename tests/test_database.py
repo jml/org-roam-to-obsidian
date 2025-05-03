@@ -96,6 +96,12 @@ def sample_db_path():
                     "(26316 12970 0 0)",
                     "(26316 12970 0 0)",
                 ),
+                (
+                    '"/path/to/quoted_file.org"',  # Note the quotes around the path
+                    "hash3",
+                    "(26316 12970 0 0)",
+                    "(26316 12970 0 0)",
+                ),
             ],
         )
 
@@ -129,6 +135,15 @@ def sample_db_path():
                     1,
                     100,
                     '{"CREATED": "20220103"}',
+                    "[]",
+                ),
+                (
+                    "node4",
+                    '"/path/to/quoted_file.org"',  # Note the quotes around the path
+                    "Node 4",
+                    1,
+                    100,
+                    '{"CREATED": "20220104"}',
                     "[]",
                 ),
             ],
@@ -260,24 +275,33 @@ def test_get_all_files(sample_db_path):
     db = OrgRoamDatabase(Path(sample_db_path))
     files = list(db.get_all_files())
 
-    assert len(files) == 2
+    # After our fix, we should get all 3 files, including the one with quotes
+    assert len(files) == 3
 
-    expected_files = [
-        OrgRoamFile(
-            file_path=Path("/path/to/file1.org"),
-            hash="hash1",
-            atime="(25821 50943 0 0)",
-            mtime="(25821 50943 0 0)",
-        ),
-        OrgRoamFile(
-            file_path=Path("/path/to/file2.org"),
-            hash="hash2",
-            atime="(26316 12970 0 0)",
-            mtime="(26316 12970 0 0)",
-        ),
-    ]
+    # The files come back in alphabetical order from the SQL query
+    # So we should sort them by file path for comparison
+    files_by_path = {str(f.file_path): f for f in files}
 
-    assert files == expected_files
+    # Verify we have all expected paths
+    assert "/path/to/file1.org" in files_by_path
+    assert "/path/to/file2.org" in files_by_path
+    assert "/path/to/quoted_file.org" in files_by_path
+
+    # Check specific file attributes
+    file1 = files_by_path["/path/to/file1.org"]
+    assert file1.hash == "hash1"
+    assert file1.atime == "(25821 50943 0 0)"
+    assert file1.mtime == "(25821 50943 0 0)"
+
+    file2 = files_by_path["/path/to/file2.org"]
+    assert file2.hash == "hash2"
+    assert file2.atime == "(26316 12970 0 0)"
+    assert file2.mtime == "(26316 12970 0 0)"
+
+    quoted_file = files_by_path["/path/to/quoted_file.org"]
+    assert quoted_file.hash == "hash3"
+    assert quoted_file.atime == "(26316 12970 0 0)"
+    assert quoted_file.mtime == "(26316 12970 0 0)"
 
 
 def test_get_all_nodes(sample_db_path):
@@ -285,7 +309,7 @@ def test_get_all_nodes(sample_db_path):
     db = OrgRoamDatabase(Path(sample_db_path))
     nodes = list(db.get_all_nodes())
 
-    assert len(nodes) == 3
+    assert len(nodes) == 4  # Now includes node4 with the quoted file path
 
     # Check node1
     node1 = next(node for node in nodes if node.id == "node1")
@@ -322,6 +346,18 @@ def test_get_all_nodes(sample_db_path):
     assert node3.tags == []
     assert node3.aliases == ["alias3"]
     assert node3.refs == []
+
+    # Check node4 (from the quoted file path)
+    node4 = next(node for node in nodes if node.id == "node4")
+    assert node4.file_path == Path("/path/to/quoted_file.org")  # Quotes are stripped
+    assert node4.title == "Node 4"
+    assert node4.level == 1
+    assert node4.pos == 100
+    assert node4.olp == []
+    assert node4.properties == {"CREATED": "20220104"}
+    assert node4.tags == []
+    assert node4.aliases == []
+    assert node4.refs == []
 
 
 def test_get_node_by_id(sample_db_path):
@@ -415,10 +451,13 @@ def test_create_id_to_filename_map(sample_db_path):
     db = OrgRoamDatabase(Path(sample_db_path))
     id_to_file = db.create_id_to_filename_map()
 
-    assert len(id_to_file) == 3
+    assert len(id_to_file) == 4  # Now includes node4
     assert id_to_file["node1"] == Path("/path/to/file1.org")
     assert id_to_file["node2"] == Path("/path/to/file1.org")
     assert id_to_file["node3"] == Path("/path/to/file2.org")
+    assert id_to_file["node4"] == Path(
+        "/path/to/quoted_file.org"
+    )  # Quotes are now stripped
 
 
 def test_context_manager(sample_db_path):
@@ -426,4 +465,93 @@ def test_context_manager(sample_db_path):
     with OrgRoamDatabase(Path(sample_db_path)) as db:
         assert db is not None
         files = list(db.get_all_files())
-        assert len(files) == 2
+        assert len(files) == 3  # Now includes the file with quoted path
+
+
+def test_quoted_file_paths_bug(sample_db_path, tmp_path):
+    """Demonstrate the bug with quoted file paths in the database."""
+    # Connect to the database
+    db = OrgRoamDatabase(Path(sample_db_path))
+
+    # Get all raw file paths directly from the database
+    cursor = db.conn.execute("SELECT file FROM files ORDER BY file")
+    raw_paths = [row["file"] for row in cursor]
+
+    # Verify that there are quoted paths in the database
+    assert any('"' in path for path in raw_paths)
+
+    # Find a quoted path in the database
+    quoted_path = next(path for path in raw_paths if '"' in path)
+
+    # Create the file
+    test_file = tmp_path / "test_file.org"
+    test_file.write_text("Test content")
+
+    # Demonstrate the issue: when checking file existence with quoted paths
+
+    # The file at the quoted path doesn't exist
+    assert not Path(quoted_path).exists()
+
+    # The file with the same name without quotes would exist (if we had created it)
+    # For this test, we're using a temporary file to demonstrate the principle
+    assert test_file.exists()
+
+    # This demonstrates the core issue: when the database contains quoted paths,
+    # using Path(row["file"]) creates paths with quotes that don't match real files
+    # The converter's _convert_file method fails with "source_file_not_found"
+    # because src_file.exists() returns False for these quoted paths
+
+
+def test_strip_quotes_from_file_paths(sample_db_path, tmp_path):
+    """Test that quotes are properly stripped from file paths."""
+    # Connect to the database
+    db = OrgRoamDatabase(Path(sample_db_path))
+
+    # Get all raw file paths directly from the database
+    cursor = db.conn.execute("SELECT file FROM files ORDER BY file")
+    raw_paths = [row["file"] for row in cursor]
+
+    # Find a quoted path
+    quoted_path = next((path for path in raw_paths if '"' in path), None)
+    assert quoted_path is not None, "No quoted path found in test database"
+
+    # Get OrgRoamFile objects using our fixed implementation
+    files = list(db.get_all_files())
+
+    # Find the file object that corresponds to the quoted path
+    quoted_file = next(
+        (f for f in files if f.file_path.name == Path(quoted_path.strip('"')).name),
+        None,
+    )
+    assert quoted_file is not None, "Could not find file with quoted path in results"
+
+    # Create a temporary file that matches the path after quotes are stripped
+    test_file = tmp_path / quoted_file.file_path.name
+    test_file.write_text("Test content")
+
+    # Create paths to test with
+    buggy_path_obj = Path(quoted_path)  # Has quotes, won't match real files
+    fixed_path_obj = (
+        quoted_file.file_path
+    )  # From our fixed implementation, should not have quotes
+
+    # The buggy path (with quotes) shouldn't exist
+    assert not buggy_path_obj.exists()
+
+    # Create a file at the fixed path location (in tmp_path) to simulate a real file
+    fixed_test_path = tmp_path / fixed_path_obj.name
+    fixed_test_path.write_text("Test content")
+
+    # This path should exist
+    assert fixed_test_path.exists()
+
+    # Now check that our OrgRoamFile object has a path without quotes
+    assert '"' not in str(quoted_file.file_path)
+
+    # Check that the OrgRoamFile's path matches what we expect after stripping quotes
+    assert quoted_file.file_path == Path(quoted_path.strip('"'))
+
+    # This confirms:
+    # 1. Our fix correctly strips quotes from paths in get_all_files()
+    # 2. The resulting paths don't contain quotes and would match real files
+    # 3. The buggy paths with quotes would fail existence checks

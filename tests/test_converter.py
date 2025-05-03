@@ -8,6 +8,7 @@ from org_roam_to_obsidian.converter import (
     AttachmentsConfig,
     ConversionConfig,
     ConverterConfig,
+    DEFAULT_CONFIG,
     FormattingConfig,
     OrgRoamConverter,
 )
@@ -60,10 +61,13 @@ class TestConfigClasses:
     def test_conversion_config_defaults(self):
         """Default initialization of ConversionConfig sets expected values."""
         config = ConversionConfig()
-        assert config.preserve_creation_date is True
-        assert config.frontmatter_format == "yaml"
-        assert config.convert_tags is True
-        assert config.link_format == "[[${filename}]]"
+        expected = ConversionConfig(
+            preserve_creation_date=True,
+            frontmatter_format="yaml",
+            convert_tags=True,
+            link_format="[[${filename}]]",
+        )
+        assert config == expected
 
     def test_conversion_config_validation(self):
         """ConversionConfig validation prevents invalid format and link configs."""
@@ -86,8 +90,11 @@ class TestConfigClasses:
     def test_attachments_config_defaults(self):
         """AttachmentsConfig initializes with default folder name and copy behavior."""
         config = AttachmentsConfig()
-        assert config.copy_attachments is True
-        assert config.attachment_folder == "assets"
+        expected = AttachmentsConfig(
+            copy_attachments=True,
+            attachment_folder="assets",
+        )
+        assert config == expected
 
     def test_attachments_config_validation(self):
         """AttachmentsConfig rejects folders with path separators or empty names."""
@@ -110,9 +117,12 @@ class TestConfigClasses:
     def test_formatting_config_defaults(self):
         """FormattingConfig enables all content conversion options by default."""
         config = FormattingConfig()
-        assert config.convert_tables is True
-        assert config.convert_code_blocks is True
-        assert config.convert_latex is True
+        expected = FormattingConfig(
+            convert_tables=True,
+            convert_code_blocks=True,
+            convert_latex=True,
+        )
+        assert config == expected
 
     def test_converter_config_defaults(self):
         """ConverterConfig correctly composes nested configuration objects."""
@@ -121,9 +131,12 @@ class TestConfigClasses:
             attachments=AttachmentsConfig(),
             formatting=FormattingConfig(),
         )
-        assert isinstance(config.conversion, ConversionConfig)
-        assert isinstance(config.attachments, AttachmentsConfig)
-        assert isinstance(config.formatting, FormattingConfig)
+        expected = ConverterConfig(
+            conversion=ConversionConfig(),
+            attachments=AttachmentsConfig(),
+            formatting=FormattingConfig(),
+        )
+        assert config == expected
 
 
 class TestOrgRoamConverter:
@@ -143,9 +156,13 @@ class TestOrgRoamConverter:
             dry_run=True,
         )
 
-        assert converter.source == temp_source
-        assert converter.destination == temp_dir
-        assert converter.dry_run is True
+        expected = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=config,
+            dry_run=True,
+        )
+        assert converter == expected
 
     def test_from_paths(self, temp_source, temp_dir):
         """Factory method creates converter from source and destination paths."""
@@ -155,9 +172,13 @@ class TestOrgRoamConverter:
             dry_run=True,
         )
 
-        assert converter.source == temp_source
-        assert converter.destination == temp_dir
-        assert converter.dry_run is True
+        expected = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=DEFAULT_CONFIG,
+            dry_run=True,
+        )
+        assert converter == expected
 
     def test_default_config(self, temp_source, temp_dir):
         """Default configuration sets expected values for all nested config objects."""
@@ -172,9 +193,13 @@ class TestOrgRoamConverter:
             config=config,
         )
 
-        assert isinstance(converter.config, ConverterConfig)
-        assert converter.config.conversion.frontmatter_format == "yaml"
-        assert converter.config.attachments.attachment_folder == "assets"
+        expected = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=config,
+            dry_run=False,
+        )
+        assert converter == expected
 
     def test_from_toml_config(self, temp_source, temp_dir, temp_config_file):
         """Loading from TOML config file overrides default configuration values."""
@@ -184,11 +209,33 @@ class TestOrgRoamConverter:
             config_path=temp_config_file,
         )
 
-        assert isinstance(converter.config, ConverterConfig)
-        assert converter.config.conversion.frontmatter_format == "yaml"
-        # Check custom value from the TOML file
-        assert converter.config.attachments.attachment_folder == "custom_assets"
-        assert converter.config.formatting.convert_code_blocks is False
+        # Create the expected config with the values from the TOML file
+        expected_config = ConverterConfig(
+            conversion=ConversionConfig(
+                preserve_creation_date=True,
+                frontmatter_format="yaml",
+                convert_tags=True,
+                link_format="[[${filename}]]",
+            ),
+            attachments=AttachmentsConfig(
+                copy_attachments=True,
+                attachment_folder="custom_assets",
+            ),
+            formatting=FormattingConfig(
+                convert_tables=True,
+                convert_code_blocks=False,
+                convert_latex=True,
+            ),
+        )
+
+        expected = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=expected_config,
+            dry_run=False,
+        )
+
+        assert converter == expected
 
     def test_invalid_config_handling(self, temp_source, temp_dir):
         """Config validation fails fast with invalid frontmatter or paths."""
@@ -283,8 +330,23 @@ class TestOrgRoamConverter:
         # Use constructor directly with nested dictionaries
         config = ConverterConfig(**config_dict)  # type: ignore[arg-type]
 
-        # Verify all values were properly set
-        assert config.conversion.frontmatter_format == "yaml"
-        assert config.attachments.attachment_folder == "test_assets"
-        assert config.formatting.convert_tables is False
-        assert config.formatting.convert_code_blocks is True
+        # Create expected configuration
+        expected = ConverterConfig(
+            conversion=ConversionConfig(
+                frontmatter_format="yaml",
+                preserve_creation_date=True,
+                convert_tags=True,
+                link_format="[[${filename}]]",
+            ),
+            attachments=AttachmentsConfig(
+                copy_attachments=True,
+                attachment_folder="test_assets",
+            ),
+            formatting=FormattingConfig(
+                convert_tables=False,
+                convert_code_blocks=True,
+                convert_latex=False,
+            ),
+        )
+
+        assert config == expected

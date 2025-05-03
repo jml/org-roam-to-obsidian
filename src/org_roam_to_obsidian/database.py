@@ -111,7 +111,7 @@ class OrgRoamDatabase:
 
         for row in cursor:
             yield OrgRoamFile(
-                file_path=Path(row["file"]),
+                file_path=Path(row["file"].strip('"')),
                 hash=row["hash"],
                 atime=row["atime"],
                 mtime=row["mtime"],
@@ -177,7 +177,7 @@ class OrgRoamDatabase:
 
             yield OrgRoamNode(
                 id=row["id"],
-                file_path=Path(row["file"]),
+                file_path=Path(row["file"].strip('"')),
                 title=row["title"],
                 level=row["level"],
                 pos=row["pos"],
@@ -296,7 +296,7 @@ class OrgRoamDatabase:
 
         return OrgRoamNode(
             id=row["id"],
-            file_path=Path(row["file"]),
+            file_path=Path(row["file"].strip('"')),
             title=row["title"],
             level=row["level"],
             pos=row["pos"],
@@ -497,7 +497,7 @@ class OrgRoamDatabase:
 
             yield OrgRoamNode(
                 id=row["id"],
-                file_path=Path(row["file"]),
+                file_path=Path(row["file"].strip('"')),
                 title=row["title"],
                 level=row["level"],
                 pos=row["pos"],
@@ -526,6 +526,6 @@ class OrgRoamDatabase:
 
         id_to_file: dict[str, Path] = {}
         for row in cursor:
-            id_to_file[row["id"]] = Path(row["file"])
+            id_to_file[row["id"]] = Path(row["file"].strip('"'))
 
         return id_to_file

@@ -32,6 +32,7 @@ This document contains critical information about working with this codebase. Fo
      - Explain why the test matters when it's not obvious
      - When possible, provide context about the test's significance
      - Keep concise but informative - choose clarity over brevity
+   - When comparing dataclass values for equality in tests, assert on the whole object, rather than on individual attributes
 
 4.  Error Handling
   - Use specific exception types and descriptive error messages
