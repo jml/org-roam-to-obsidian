@@ -107,7 +107,7 @@ class OrgRoamConverter:
     source: Path
     destination: Path
     config: ConverterConfig
-    source_base_path: Path | None = None
+    source_base_path: Path
     dry_run: bool = False
 
     def __post_init__(self) -> None:
@@ -125,8 +125,8 @@ class OrgRoamConverter:
         cls,
         source: Path,
         destination: Path,
+        source_base_path: Path,
         config_path: Path | None = None,
-        source_base_path: Path | None = None,
         dry_run: bool = False,
     ) -> "OrgRoamConverter":
         """Create a converter from paths, loading configuration if provided."""
@@ -136,9 +136,7 @@ class OrgRoamConverter:
         if config_path is not None:
             config = ConverterConfig.from_file(config_path)
 
-        # Set source_base_path for use in path calculations
-        if source_base_path is not None:
-            log.info("source_base_path_set", path=str(source_base_path))
+        log.info("source_base_path_set", path=str(source_base_path))
 
         return cls(
             source=source,
@@ -193,12 +191,6 @@ class OrgRoamConverter:
         if self.config.conversion.preserve_path_structure:
             # Get the base path for calculating relative paths
             base_path = self.source_base_path
-
-            if base_path is None:
-                # Try to extract a common parent directory from the database path
-                # Go up one level from the database file as the default base path
-                base_path = self.source.parent
-                log.info("using_default_base_path", base_path=str(base_path))
 
             # Try to resolve both paths to absolute paths to handle symlinks
             try:

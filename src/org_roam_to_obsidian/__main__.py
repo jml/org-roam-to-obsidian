@@ -74,11 +74,16 @@ def main(
 
     try:
         try:
+            # If source_base_path is not provided, use parent of source database
+            base_path = (
+                source_base_path if source_base_path is not None else source.parent
+            )
+
             converter = OrgRoamConverter.from_paths(
                 source=source,
                 destination=destination,
                 config_path=config,
-                source_base_path=source_base_path,
+                source_base_path=base_path,
                 dry_run=dry_run,
             )
         except ValidationError as e:

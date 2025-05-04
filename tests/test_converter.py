@@ -58,16 +58,13 @@ convert_latex = true
 
 @pytest.fixture
 def temp_config_with_base_path(temp_dir, nested_org_files):
-    """Create a temporary TOML config file with source_base_path set."""
-    # Get the base path for the nested org files
-    base_path = nested_org_files["base_path"]
-
-    config_content = f"""
+    """Create a temporary TOML config file."""
+    config_content = """
 [conversion]
 preserve_creation_date = true
 frontmatter_format = "yaml"
 convert_tags = true
-link_format = "[[${{filename}}]]"
+link_format = "[[${filename}]]"
 preserve_path_structure = true
 
 [attachments]
@@ -205,7 +202,8 @@ class TestOrgRoamConverter:
     def test_get_destination_path_with_path_structure(
         self, temp_source, temp_dir, nested_org_files
     ):
-        """Test that _get_destination_path preserves directory structure when configured to do so."""
+        """Test preserving directory structure in destination paths."""
+        # Tests directory structure preservation
         # Create converter with path preservation enabled and specified base path
         config = ConverterConfig(
             conversion=ConversionConfig(
@@ -246,7 +244,8 @@ class TestOrgRoamConverter:
     def test_get_destination_path_without_path_structure(
         self, temp_source, temp_dir, nested_org_files
     ):
-        """Test that _get_destination_path flattens directory structure when preservation is disabled."""
+        """Test flattening directory structure in destination paths."""
+        # Tests directory structure flattening
         # Create converter with path preservation disabled
         config = ConverterConfig(
             conversion=ConversionConfig(
@@ -261,6 +260,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=output_dir,
             config=config,
+            source_base_path=temp_source.parent,
         )
 
         # Test for each file in the nested structure
@@ -292,6 +292,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=config,
+            source_base_path=temp_source.parent,
             dry_run=True,
         )
 
@@ -299,7 +300,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=config,
-            source_base_path=None,
+            source_base_path=temp_source.parent,
             dry_run=True,
         )
         assert converter == expected
@@ -309,6 +310,7 @@ class TestOrgRoamConverter:
         converter = OrgRoamConverter.from_paths(
             source=temp_source,
             destination=temp_dir,
+            source_base_path=temp_source.parent,
             dry_run=True,
         )
 
@@ -316,7 +318,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=DEFAULT_CONFIG,
-            source_base_path=None,
+            source_base_path=temp_source.parent,
             dry_run=True,
         )
         assert converter == expected
@@ -332,13 +334,14 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=config,
+            source_base_path=temp_source.parent,
         )
 
         expected = OrgRoamConverter(
             source=temp_source,
             destination=temp_dir,
             config=config,
-            source_base_path=None,
+            source_base_path=temp_source.parent,
             dry_run=False,
         )
         assert converter == expected
@@ -348,6 +351,7 @@ class TestOrgRoamConverter:
         converter = OrgRoamConverter.from_paths(
             source=temp_source,
             destination=temp_dir,
+            source_base_path=temp_source.parent,
             config_path=temp_config_file,
         )
 
@@ -375,7 +379,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=expected_config,
-            source_base_path=None,
+            source_base_path=temp_source.parent,
             dry_run=False,
         )
 
@@ -482,6 +486,7 @@ class TestOrgRoamConverter:
             OrgRoamConverter.from_paths(
                 source=temp_source,
                 destination=temp_dir,
+                source_base_path=temp_source.parent,
                 config_path=invalid_format_path,
             )
         error_msg = str(exc_info.value)
@@ -501,6 +506,7 @@ class TestOrgRoamConverter:
             OrgRoamConverter.from_paths(
                 source=temp_source,
                 destination=temp_dir,
+                source_base_path=temp_source.parent,
                 config_path=invalid_path_config,
             )
         error_msg = str(exc_info.value)
@@ -514,6 +520,7 @@ class TestOrgRoamConverter:
             OrgRoamConverter.from_paths(
                 source=temp_source,
                 destination=temp_dir,
+                source_base_path=temp_source.parent,
                 config_path=nonexistent_path,
             )
         error_msg = str(exc_info.value)
@@ -530,6 +537,7 @@ class TestOrgRoamConverter:
             OrgRoamConverter.from_paths(
                 source=temp_source,
                 destination=temp_dir,
+                source_base_path=temp_source.parent,
                 config_path=empty_config_path,
             )
         error_msg = str(exc_info.value)
