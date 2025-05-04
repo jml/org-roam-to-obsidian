@@ -4,7 +4,8 @@ This document contains critical information about working with this codebase. Fo
 
 ## Core Development Rules
 
-1. Package Management
+### Package Management
+
    - ONLY use uv, NEVER pip
    - Installation: `uv add package`
    - Running tools: `uv run tool`
@@ -12,29 +13,32 @@ This document contains critical information about working with this codebase. Fo
    - FORBIDDEN: `uv pip install`, `@latest` syntax
    - Use `uv run pip` instead of `pip`
 
-2. Code Quality
+### Code Quality
+
    - Type hints required for all code
    - Public APIs must have docstrings
    - Functions must be focused and small
    - Follow existing patterns exactly
    - Line length: 88 chars maximum
 
-3. Testing Requirements
+### Testing Requirements
+
    - Framework: `uv run --frozen pytest`
    - Async testing: use anyio, not asyncio
    - Coverage: test edge cases and errors
    - New features require tests
    - Bug fixes require regression tests
-   - Test docstrings:
+   - When comparing dataclass values for equality in tests, assert on the whole object, rather than on individual attributes
+
+#### Test docstrings
      - Focus on behavior being tested, not implementation
      - Remove redundant phrases like "Test that..." or "Check that..."
      - Omit words like "correctly," "properly," or "as expected"
      - Explain why the test matters when it's not obvious
      - When possible, provide context about the test's significance
      - Keep concise but informative - choose clarity over brevity
-   - When comparing dataclass values for equality in tests, assert on the whole object, rather than on individual attributes
 
-4.  Error Handling
+###  Error Handling
   - Use specific exception types and descriptive error messages
   - Never catch an exception just to log it and re-raise; let it propagate naturally
   - Handle exceptions only where you can take meaningful action
@@ -69,40 +73,9 @@ This document contains critical information about working with this codebase. Fo
      - Imports: split into multiple lines
 
 2. Type Checking
-   - Tool: `uv run --frozen mypy`
+   - Tool: `uv run --frozen mypy src tests`
    - Requirements:
      - Explicit None checks for Optional
      - Type narrowing for strings
      - Version warnings can be ignored if checks pass
      - `Type | None` syntax for optional types
-
-## Error Resolution
-
-1. CI Failures
-   - Fix order:
-     1. Formatting
-     2. Type errors
-     3. Linting
-   - Type errors:
-     - Get full line context
-     - Check Optional types
-     - Add type narrowing
-     - Verify function signatures
-
-2. Common Issues
-   - Line length:
-     - Break strings with parentheses
-     - Multi-line function calls
-     - Split imports
-   - Types:
-     - Add None checks
-     - Narrow string types
-     - Match existing patterns
-
-3. Best Practices
-   - Check git status before commits
-   - Run formatters before type checks
-   - Keep changes minimal
-   - Follow existing patterns
-   - Document public APIs
-   - Test thoroughly
