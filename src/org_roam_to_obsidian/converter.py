@@ -20,6 +20,8 @@ class ConversionConfig:
     frontmatter_format: str = "yaml"
     convert_tags: bool = True
     link_format: str = "[[${filename}]]"
+    preserve_path_structure: bool = True
+    source_base_path: Path | None = None
 
     @field_validator("frontmatter_format")
     @classmethod
@@ -124,6 +126,7 @@ class OrgRoamConverter:
         source: Path,
         destination: Path,
         config_path: Path | None = None,
+        source_base_path: Path | None = None,
         dry_run: bool = False,
     ) -> "OrgRoamConverter":
         """Create a converter from paths, loading configuration if provided."""
@@ -132,6 +135,28 @@ class OrgRoamConverter:
         # Load config from file if provided
         if config_path is not None:
             config = ConverterConfig.from_file(config_path)
+
+        # Override source_base_path if provided
+        if source_base_path is not None:
+            # We need to create a new ConversionConfig with the source_base_path
+            # since the dataclass is frozen
+            updated_conversion = ConversionConfig(
+                preserve_creation_date=config.conversion.preserve_creation_date,
+                frontmatter_format=config.conversion.frontmatter_format,
+                convert_tags=config.conversion.convert_tags,
+                link_format=config.conversion.link_format,
+                preserve_path_structure=config.conversion.preserve_path_structure,
+                source_base_path=source_base_path,
+            )
+
+            # Create a new ConverterConfig with the updated ConversionConfig
+            config = ConverterConfig(
+                conversion=updated_conversion,
+                attachments=config.attachments,
+                formatting=config.formatting,
+            )
+
+            log.info("source_base_path_set", path=str(source_base_path))
 
         return cls(
             source=source,
@@ -170,8 +195,8 @@ class OrgRoamConverter:
         """
         Determine the destination path for a converted markdown file.
 
-        Preserves the directory structure from the source,
-        but changes the extension to .md
+        Preserves the directory structure from the source based on configuration,
+        and changes the extension to .md
 
         Args:
             src_file: Path to the source org file
@@ -179,9 +204,89 @@ class OrgRoamConverter:
         Returns:
             Path to the destination markdown file
         """
-        # Simple approach: just use the filename and change extension
+        # Change extension to .md
         dest_filename = src_file.stem + ".md"
-        dest_path = self.destination / dest_filename
+
+        if self.config.conversion.preserve_path_structure:
+            # Get the base path for calculating relative paths
+            base_path = self.config.conversion.source_base_path
+
+            if base_path is None:
+                # Try to extract a common parent directory from the database path
+                # Go up one level from the database file as the default base path
+                base_path = self.source.parent
+                log.info("using_default_base_path", base_path=str(base_path))
+
+            # Try to resolve both paths to absolute paths to handle symlinks
+            try:
+                abs_src_file = src_file.resolve()
+                abs_base_path = base_path.resolve()
+
+                # Check if the source file exists
+                if not abs_src_file.exists():
+                    log.warning(
+                        "source_file_does_not_exist",
+                        file=str(src_file),
+                        resolved=str(abs_src_file),
+                    )
+                    # Fall back to the original path for calculation
+                    abs_src_file = src_file
+
+                # Calculate the relative path from the base directory
+                try:
+                    # First try with resolved paths
+                    rel_path = abs_src_file.relative_to(abs_base_path)
+                    log.debug(
+                        "using_resolved_paths",
+                        src_file=str(abs_src_file),
+                        base_path=str(abs_base_path),
+                        rel_path=str(rel_path),
+                    )
+                except ValueError:
+                    # If that fails, try with the original paths
+                    log.debug("resolved_paths_not_relative", trying_original_paths=True)
+                    rel_path = src_file.relative_to(base_path)
+                    log.debug(
+                        "using_original_paths",
+                        src_file=str(src_file),
+                        base_path=str(base_path),
+                        rel_path=str(rel_path),
+                    )
+
+                # If it's just a filename (no directory), use it directly
+                if len(rel_path.parts) > 1:
+                    # Get the directory part (exclude filename)
+                    rel_dir = rel_path.parent
+
+                    # Construct the destination path with preserved structure
+                    dest_path = self.destination / rel_dir / dest_filename
+
+                    log.debug(
+                        "preserving_directory_structure",
+                        rel_dir=str(rel_dir),
+                        dest_path=str(dest_path),
+                    )
+                else:
+                    # No directory structure to preserve
+                    dest_path = self.destination / dest_filename
+
+                    log.debug(
+                        "no_directory_structure_to_preserve", dest_path=str(dest_path)
+                    )
+
+            except ValueError as e:
+                # If the file is not relative to the base path,
+                # fall back to just using the filename
+                log.warning(
+                    "file_not_relative_to_base_path",
+                    file=str(src_file),
+                    base_path=str(base_path),
+                    error=str(e),
+                )
+                dest_path = self.destination / dest_filename
+        else:
+            # Simple approach: just use the filename without preserving structure
+            dest_path = self.destination / dest_filename
 
         # Create parent directories if they don't exist
         dest_path.parent.mkdir(parents=True, exist_ok=True)

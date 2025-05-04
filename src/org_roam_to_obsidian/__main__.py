@@ -49,13 +49,24 @@ log = get_logger(__name__)
     help="Path to a TOML config file (optional)",
 )
 @click.option(
+    "--source-base-path",
+    "-b",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, path_type=Path),
+    help="Base path of org-roam files for preserving directory structure (optional)",
+)
+@click.option(
     "--dry-run", is_flag=True, help="Test the conversion without writing files"
 )
 @click.option(
     "--verbose", "-v", is_flag=True, help="Show detailed conversion information"
 )
 def main(
-    source: Path, destination: Path, config: Path | None, dry_run: bool, verbose: bool
+    source: Path,
+    destination: Path,
+    config: Path | None,
+    source_base_path: Path | None,
+    dry_run: bool,
+    verbose: bool,
 ) -> int:
     """Convert Org-roam files to Obsidian markdown."""
     setup_logging(verbose)
@@ -66,6 +77,7 @@ def main(
                 source=source,
                 destination=destination,
                 config_path=config,
+                source_base_path=source_base_path,
                 dry_run=dry_run,
             )
         except ValidationError as e:

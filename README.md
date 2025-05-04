@@ -29,12 +29,13 @@ org-roam-to-obsidian --source /path/to/org-roam.db --destination /path/to/obsidi
 Options:
 
 ```
---source, -s         Path to your org-roam database file
---destination, -d    Path for the new Obsidian vault
---config, -c         Path to a config file (optional)
---dry-run            Test the conversion without writing files
---verbose, -v        Show detailed conversion information
---help, -h           Display this help message
+--source, -s                Path to your org-roam database file
+--destination, -d           Path for the new Obsidian vault
+--config, -c                Path to a config file (optional)
+--source-base-path, -b      Base path of org-roam files for preserving directory structure (optional)
+--dry-run                   Test the conversion without writing files
+--verbose, -v               Show detailed conversion information
+--help, -h                  Display this help message
 ```
 
 ## Configuration
@@ -48,6 +49,8 @@ preserve_creation_date = true
 frontmatter_format = "yaml"
 convert_tags = true
 link_format = "[[${filename}]]"
+preserve_path_structure = true
+source_base_path = "/path/to/org-roam/files"  # Base path for preserving directory structure
 
 [attachments]
 copy_attachments = true
@@ -74,6 +77,19 @@ org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault
 # Use custom configuration
 org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault -c my-config.toml
 ```
+
+### Preserving Directory Structure
+
+When your org-roam notes are organized in subdirectories, you can preserve this structure in Obsidian by specifying the base path of your org-roam files:
+
+```bash
+# Specify the base path to preserve directory structure
+org-roam-to-obsidian -s ~/org-roam.db -d ~/ObsidianVault -b ~/org-roam/
+```
+
+For example, if you have a file at `~/org-roam/projects/work/notes.org`, it will be converted to `~/ObsidianVault/projects/work/notes.md` rather than flattening it to just `~/ObsidianVault/notes.md`.
+
+You can also set the base path in your config file using the `source_base_path` setting in the `[conversion]` section.
 
 ## Conversion Details
 

@@ -287,21 +287,31 @@ def test_get_all_files(sample_db_path):
     assert "/path/to/file2.org" in files_by_path
     assert "/path/to/quoted_file.org" in files_by_path
 
-    # Check specific file attributes
-    file1 = files_by_path["/path/to/file1.org"]
-    assert file1.hash == "hash1"
-    assert file1.atime == "(25821 50943 0 0)"
-    assert file1.mtime == "(25821 50943 0 0)"
+    # Check files match expected objects
+    expected_file1 = OrgRoamFile(
+        file_path=Path("/path/to/file1.org"),
+        hash="hash1",
+        atime="(25821 50943 0 0)",
+        mtime="(25821 50943 0 0)",
+    )
 
-    file2 = files_by_path["/path/to/file2.org"]
-    assert file2.hash == "hash2"
-    assert file2.atime == "(26316 12970 0 0)"
-    assert file2.mtime == "(26316 12970 0 0)"
+    expected_file2 = OrgRoamFile(
+        file_path=Path("/path/to/file2.org"),
+        hash="hash2",
+        atime="(26316 12970 0 0)",
+        mtime="(26316 12970 0 0)",
+    )
 
-    quoted_file = files_by_path["/path/to/quoted_file.org"]
-    assert quoted_file.hash == "hash3"
-    assert quoted_file.atime == "(26316 12970 0 0)"
-    assert quoted_file.mtime == "(26316 12970 0 0)"
+    expected_quoted_file = OrgRoamFile(
+        file_path=Path("/path/to/quoted_file.org"),
+        hash="hash3",
+        atime="(26316 12970 0 0)",
+        mtime="(26316 12970 0 0)",
+    )
+
+    assert files_by_path["/path/to/file1.org"] == expected_file1
+    assert files_by_path["/path/to/file2.org"] == expected_file2
+    assert files_by_path["/path/to/quoted_file.org"] == expected_quoted_file
 
 
 def test_get_all_nodes(sample_db_path):
@@ -311,53 +321,70 @@ def test_get_all_nodes(sample_db_path):
 
     assert len(nodes) == 4  # Now includes node4 with the quoted file path
 
-    # Check node1
+    # Define expected nodes
+    expected_node1 = OrgRoamNode(
+        id="node1",
+        file_path=Path("/path/to/file1.org"),
+        title="Node 1",
+        level=1,
+        pos=100,
+        olp=["Parent", "Child"],
+        properties={"CREATED": "20220101"},
+        tags=["tag1", "tag2"],
+        aliases=["alias1", "alias2"],
+        refs=[],
+    )
+
+    expected_node2 = OrgRoamNode(
+        id="node2",
+        file_path=Path("/path/to/file1.org"),
+        title="Node 2",
+        level=2,
+        pos=200,
+        olp=["Parent", "Child", "Grandchild"],
+        properties={"CREATED": "20220102"},
+        tags=["tag3"],
+        aliases=[],
+        refs=["ref1", "ref2"],
+    )
+
+    expected_node3 = OrgRoamNode(
+        id="node3",
+        file_path=Path("/path/to/file2.org"),
+        title="Node 3",
+        level=1,
+        pos=100,
+        olp=[],
+        properties={"CREATED": "20220103"},
+        tags=[],
+        aliases=["alias3"],
+        refs=[],
+    )
+
+    expected_node4 = OrgRoamNode(
+        id="node4",
+        file_path=Path("/path/to/quoted_file.org"),
+        title="Node 4",
+        level=1,
+        pos=100,
+        olp=[],
+        properties={"CREATED": "20220104"},
+        tags=[],
+        aliases=[],
+        refs=[],
+    )
+
+    # The order of nodes might vary, so we need to find them by ID
     node1 = next(node for node in nodes if node.id == "node1")
-    assert node1.file_path == Path("/path/to/file1.org")
-    assert node1.title == "Node 1"
-    assert node1.level == 1
-    assert node1.pos == 100
-    assert node1.olp == ["Parent", "Child"]
-    assert node1.properties == {"CREATED": "20220101"}
-    assert set(node1.tags) == {"tag1", "tag2"}
-    assert set(node1.aliases) == {"alias1", "alias2"}
-    assert node1.refs == []
-
-    # Check node2
     node2 = next(node for node in nodes if node.id == "node2")
-    assert node2.file_path == Path("/path/to/file1.org")
-    assert node2.title == "Node 2"
-    assert node2.level == 2
-    assert node2.pos == 200
-    assert node2.olp == ["Parent", "Child", "Grandchild"]
-    assert node2.properties == {"CREATED": "20220102"}
-    assert node2.tags == ["tag3"]
-    assert node2.aliases == []
-    assert set(node2.refs) == {"ref1", "ref2"}
-
-    # Check node3
     node3 = next(node for node in nodes if node.id == "node3")
-    assert node3.file_path == Path("/path/to/file2.org")
-    assert node3.title == "Node 3"
-    assert node3.level == 1
-    assert node3.pos == 100
-    assert node3.olp == []
-    assert node3.properties == {"CREATED": "20220103"}
-    assert node3.tags == []
-    assert node3.aliases == ["alias3"]
-    assert node3.refs == []
-
-    # Check node4 (from the quoted file path)
     node4 = next(node for node in nodes if node.id == "node4")
-    assert node4.file_path == Path("/path/to/quoted_file.org")  # Quotes are stripped
-    assert node4.title == "Node 4"
-    assert node4.level == 1
-    assert node4.pos == 100
-    assert node4.olp == []
-    assert node4.properties == {"CREATED": "20220104"}
-    assert node4.tags == []
-    assert node4.aliases == []
-    assert node4.refs == []
+
+    # Compare full objects
+    assert node1 == expected_node1
+    assert node2 == expected_node2
+    assert node3 == expected_node3
+    assert node4 == expected_node4
 
 
 def test_get_node_by_id(sample_db_path):
@@ -367,11 +394,21 @@ def test_get_node_by_id(sample_db_path):
     # Get existing node
     node = db.get_node_by_id("node1")
     assert node is not None
-    assert node.id == "node1"
-    assert node.file_path == Path("/path/to/file1.org")
-    assert node.title == "Node 1"
-    assert set(node.tags) == {"tag1", "tag2"}
-    assert set(node.aliases) == {"alias1", "alias2"}
+
+    expected_node = OrgRoamNode(
+        id="node1",
+        file_path=Path("/path/to/file1.org"),
+        title="Node 1",
+        level=1,
+        pos=100,
+        olp=["Parent", "Child"],
+        properties={"CREATED": "20220101"},
+        tags=["tag1", "tag2"],
+        aliases=["alias1", "alias2"],
+        refs=[],
+    )
+
+    assert node == expected_node
 
     # Get non-existent node
     node = db.get_node_by_id("nonexistent")
@@ -385,15 +422,22 @@ def test_get_links(sample_db_path):
 
     assert len(links) == 2
 
-    assert links[0].source_id == "node1"
-    assert links[0].dest_id == "node2"
-    assert links[0].type == "id"
-    assert links[0].properties == {"position": 100}
+    expected_link1 = OrgRoamLink(
+        source_id="node1",
+        dest_id="node2",
+        type="id",
+        properties={"position": 100},
+    )
 
-    assert links[1].source_id == "node2"
-    assert links[1].dest_id == "node3"
-    assert links[1].type == "id"
-    assert links[1].properties == {"position": 200}
+    expected_link2 = OrgRoamLink(
+        source_id="node2",
+        dest_id="node3",
+        type="id",
+        properties={"position": 200},
+    )
+
+    assert links[0] == expected_link1
+    assert links[1] == expected_link2
 
 
 def test_get_links_for_node(sample_db_path):
@@ -403,8 +447,15 @@ def test_get_links_for_node(sample_db_path):
     # Get links for node1
     links = list(db.get_links_for_node("node1"))
     assert len(links) == 1
-    assert links[0].source_id == "node1"
-    assert links[0].dest_id == "node2"
+
+    expected_link = OrgRoamLink(
+        source_id="node1",
+        dest_id="node2",
+        type="id",
+        properties={"position": 100},
+    )
+
+    assert links[0] == expected_link
 
     # Get links for node with no outgoing links
     links = list(db.get_links_for_node("node3"))
@@ -418,8 +469,15 @@ def test_get_backlinks_for_node(sample_db_path):
     # Get backlinks for node2
     backlinks = list(db.get_backlinks_for_node("node2"))
     assert len(backlinks) == 1
-    assert backlinks[0].source_id == "node1"
-    assert backlinks[0].dest_id == "node2"
+
+    expected_backlink = OrgRoamLink(
+        source_id="node1",
+        dest_id="node2",
+        type="id",
+        properties={"position": 100},
+    )
+
+    assert backlinks[0] == expected_backlink
 
     # Get backlinks for node with no incoming links
     backlinks = list(db.get_backlinks_for_node("node1"))
@@ -433,13 +491,54 @@ def test_get_file_nodes(sample_db_path):
     # Get nodes for file1
     nodes = list(db.get_file_nodes(Path("/path/to/file1.org")))
     assert len(nodes) == 2
-    assert nodes[0].id == "node1"
-    assert nodes[1].id == "node2"
+
+    expected_node1 = OrgRoamNode(
+        id="node1",
+        file_path=Path("/path/to/file1.org"),
+        title="Node 1",
+        level=1,
+        pos=100,
+        olp=["Parent", "Child"],
+        properties={"CREATED": "20220101"},
+        tags=["tag1", "tag2"],
+        aliases=["alias1", "alias2"],
+        refs=[],
+    )
+
+    expected_node2 = OrgRoamNode(
+        id="node2",
+        file_path=Path("/path/to/file1.org"),
+        title="Node 2",
+        level=2,
+        pos=200,
+        olp=["Parent", "Child", "Grandchild"],
+        properties={"CREATED": "20220102"},
+        tags=["tag3"],
+        aliases=[],
+        refs=["ref1", "ref2"],
+    )
+
+    assert nodes[0] == expected_node1
+    assert nodes[1] == expected_node2
 
     # Get nodes for file2
     nodes = list(db.get_file_nodes(Path("/path/to/file2.org")))
     assert len(nodes) == 1
-    assert nodes[0].id == "node3"
+
+    expected_node3 = OrgRoamNode(
+        id="node3",
+        file_path=Path("/path/to/file2.org"),
+        title="Node 3",
+        level=1,
+        pos=100,
+        olp=[],
+        properties={"CREATED": "20220103"},
+        tags=[],
+        aliases=["alias3"],
+        refs=[],
+    )
+
+    assert nodes[0] == expected_node3
 
     # Get nodes for non-existent file
     nodes = list(db.get_file_nodes(Path("/path/to/nonexistent.org")))
@@ -451,13 +550,16 @@ def test_create_id_to_filename_map(sample_db_path):
     db = OrgRoamDatabase(Path(sample_db_path))
     id_to_file = db.create_id_to_filename_map()
 
-    assert len(id_to_file) == 4  # Now includes node4
-    assert id_to_file["node1"] == Path("/path/to/file1.org")
-    assert id_to_file["node2"] == Path("/path/to/file1.org")
-    assert id_to_file["node3"] == Path("/path/to/file2.org")
-    assert id_to_file["node4"] == Path(
-        "/path/to/quoted_file.org"
-    )  # Quotes are now stripped
+    assert len(id_to_file) == 4  # Includes all nodes
+
+    expected_mapping = {
+        "node1": Path("/path/to/file1.org"),
+        "node2": Path("/path/to/file1.org"),
+        "node3": Path("/path/to/file2.org"),
+        "node4": Path("/path/to/quoted_file.org"),
+    }
+
+    assert id_to_file == expected_mapping
 
 
 def test_context_manager(sample_db_path):
@@ -531,9 +633,7 @@ def test_strip_quotes_from_file_paths(sample_db_path, tmp_path):
 
     # Create paths to test with
     buggy_path_obj = Path(quoted_path)  # Has quotes, won't match real files
-    fixed_path_obj = (
-        quoted_file.file_path
-    )  # From our fixed implementation, should not have quotes
+    fixed_path_obj = quoted_file.file_path  # From our fixed implementation
 
     # The buggy path (with quotes) shouldn't exist
     assert not buggy_path_obj.exists()
@@ -545,11 +645,15 @@ def test_strip_quotes_from_file_paths(sample_db_path, tmp_path):
     # This path should exist
     assert fixed_test_path.exists()
 
-    # Now check that our OrgRoamFile object has a path without quotes
-    assert '"' not in str(quoted_file.file_path)
+    # Verify quotes were stripped correctly - check the full OrgRoamFile object
+    expected_file = OrgRoamFile(
+        file_path=Path(quoted_path.strip('"')),
+        hash="hash3",
+        atime="(26316 12970 0 0)",
+        mtime="(26316 12970 0 0)",
+    )
 
-    # Check that the OrgRoamFile's path matches what we expect after stripping quotes
-    assert quoted_file.file_path == Path(quoted_path.strip('"'))
+    assert quoted_file == expected_file
 
     # This confirms:
     # 1. Our fix correctly strips quotes from paths in get_all_files()
