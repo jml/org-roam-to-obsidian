@@ -28,6 +28,7 @@ This document contains critical information about working with this codebase. Fo
    - Coverage: test edge cases and errors
    - New features require tests
    - Bug fixes require regression tests
+   - Never use mocks
    - When comparing dataclass values for equality in tests, assert on the whole object, rather than on individual attributes
 
 #### Test docstrings
