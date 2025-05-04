@@ -51,8 +51,9 @@ log = get_logger(__name__)
 @click.option(
     "--source-base-path",
     "-b",
+    required=True,
     type=click.Path(exists=True, dir_okay=True, file_okay=False, path_type=Path),
-    help="Base path of org-roam files for preserving directory structure (optional)",
+    help="Base path of org-roam files for preserving directory structure",
 )
 @click.option(
     "--dry-run", is_flag=True, help="Test the conversion without writing files"

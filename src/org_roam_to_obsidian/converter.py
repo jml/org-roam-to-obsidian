@@ -21,7 +21,6 @@ class ConversionConfig:
     convert_tags: bool = True
     link_format: str = "[[${filename}]]"
     preserve_path_structure: bool = True
-    source_base_path: Path | None = None
 
     @field_validator("frontmatter_format")
     @classmethod
@@ -108,6 +107,7 @@ class OrgRoamConverter:
     source: Path
     destination: Path
     config: ConverterConfig
+    source_base_path: Path | None = None
     dry_run: bool = False
 
     def __post_init__(self) -> None:
@@ -136,32 +136,15 @@ class OrgRoamConverter:
         if config_path is not None:
             config = ConverterConfig.from_file(config_path)
 
-        # Override source_base_path if provided
+        # Set source_base_path for use in path calculations
         if source_base_path is not None:
-            # We need to create a new ConversionConfig with the source_base_path
-            # since the dataclass is frozen
-            updated_conversion = ConversionConfig(
-                preserve_creation_date=config.conversion.preserve_creation_date,
-                frontmatter_format=config.conversion.frontmatter_format,
-                convert_tags=config.conversion.convert_tags,
-                link_format=config.conversion.link_format,
-                preserve_path_structure=config.conversion.preserve_path_structure,
-                source_base_path=source_base_path,
-            )
-
-            # Create a new ConverterConfig with the updated ConversionConfig
-            config = ConverterConfig(
-                conversion=updated_conversion,
-                attachments=config.attachments,
-                formatting=config.formatting,
-            )
-
             log.info("source_base_path_set", path=str(source_base_path))
 
         return cls(
             source=source,
             destination=destination,
             config=config,
+            source_base_path=source_base_path,
             dry_run=dry_run,
         )
 
@@ -209,7 +192,7 @@ class OrgRoamConverter:
 
         if self.config.conversion.preserve_path_structure:
             # Get the base path for calculating relative paths
-            base_path = self.config.conversion.source_base_path
+            base_path = self.source_base_path
 
             if base_path is None:
                 # Try to extract a common parent directory from the database path

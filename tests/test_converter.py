@@ -5,10 +5,10 @@ import pytest
 from pydantic import ValidationError
 
 from org_roam_to_obsidian.converter import (
+    DEFAULT_CONFIG,
     AttachmentsConfig,
     ConversionConfig,
     ConverterConfig,
-    DEFAULT_CONFIG,
     FormattingConfig,
     OrgRoamConverter,
 )
@@ -69,7 +69,6 @@ frontmatter_format = "yaml"
 convert_tags = true
 link_format = "[[${{filename}}]]"
 preserve_path_structure = true
-source_base_path = "{base_path}"
 
 [attachments]
 copy_attachments = true
@@ -98,7 +97,6 @@ class TestConfigClasses:
             convert_tags=True,
             link_format="[[${filename}]]",
             preserve_path_structure=True,
-            source_base_path=None,
         )
         assert config == expected
 
@@ -212,7 +210,6 @@ class TestOrgRoamConverter:
         config = ConverterConfig(
             conversion=ConversionConfig(
                 preserve_path_structure=True,
-                source_base_path=nested_org_files["base_path"],
             ),
             attachments=AttachmentsConfig(),
             formatting=FormattingConfig(),
@@ -223,6 +220,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=output_dir,
             config=config,
+            source_base_path=nested_org_files["base_path"],
         )
 
         # Test for each file in the nested structure
@@ -301,6 +299,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=config,
+            source_base_path=None,
             dry_run=True,
         )
         assert converter == expected
@@ -317,6 +316,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=DEFAULT_CONFIG,
+            source_base_path=None,
             dry_run=True,
         )
         assert converter == expected
@@ -338,6 +338,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=config,
+            source_base_path=None,
             dry_run=False,
         )
         assert converter == expected
@@ -358,7 +359,6 @@ class TestOrgRoamConverter:
                 convert_tags=True,
                 link_format="[[${filename}]]",
                 preserve_path_structure=True,
-                source_base_path=None,
             ),
             attachments=AttachmentsConfig(
                 copy_attachments=True,
@@ -375,6 +375,7 @@ class TestOrgRoamConverter:
             source=temp_source,
             destination=temp_dir,
             config=expected_config,
+            source_base_path=None,
             dry_run=False,
         )
 
@@ -394,7 +395,7 @@ class TestOrgRoamConverter:
         )
 
         # Verify source_base_path was set correctly
-        assert converter.config.conversion.source_base_path == base_path
+        assert converter.source_base_path == base_path
 
         # Test for each file in the nested structure
         root_file = nested_org_files["files"][0]  # root.org
@@ -414,18 +415,19 @@ class TestOrgRoamConverter:
     def test_config_file_with_base_path(
         self, temp_source, temp_dir, nested_org_files, temp_config_with_base_path
     ):
-        """Test that source_base_path is correctly loaded from config file."""
+        """Test that source_base_path can be provided separately from config file."""
         base_path = nested_org_files["base_path"]
 
-        # Create converter with config file that includes source_base_path
+        # Create converter with config file and explicitly provided source_base_path
         converter = OrgRoamConverter.from_paths(
             source=temp_source,
             destination=temp_dir,
             config_path=temp_config_with_base_path,
+            source_base_path=base_path,
         )
 
-        # Verify source_base_path was loaded from config file
-        assert converter.config.conversion.source_base_path == base_path
+        # Verify source_base_path was set correctly
+        assert converter.source_base_path == base_path
 
         # Test for each file in the nested structure
         root_file = nested_org_files["files"][0]  # root.org
@@ -461,8 +463,8 @@ class TestOrgRoamConverter:
         )
 
         # Verify override source_base_path was used instead of config file value
-        assert converter.config.conversion.source_base_path == override_path
-        assert converter.config.conversion.source_base_path != base_path
+        assert converter.source_base_path == override_path
+        assert converter.source_base_path != base_path
 
     def test_invalid_config_handling(self, temp_source, temp_dir):
         """Config validation fails fast with invalid frontmatter or paths."""
@@ -566,7 +568,6 @@ class TestOrgRoamConverter:
                 convert_tags=True,
                 link_format="[[${filename}]]",
                 preserve_path_structure=True,
-                source_base_path=None,
             ),
             attachments=AttachmentsConfig(
                 copy_attachments=True,
