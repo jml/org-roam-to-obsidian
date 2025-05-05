@@ -370,7 +370,7 @@ class OrgRoamConverter:
 
     def _generate_frontmatter_data(
         self, node: OrgRoamNode, config: ConversionConfig
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """
         Generate frontmatter data dictionary for a markdown file based on node metadata.
 
@@ -382,7 +382,7 @@ class OrgRoamConverter:
             Dictionary containing the frontmatter data
         """
         # Extract metadata from node
-        frontmatter_data = {
+        frontmatter_data: dict[str, object] = {
             "title": node.title,
         }
 

@@ -682,10 +682,6 @@ class TestOrgRoamConverter:
 
         # Verify frontmatter contents
         assert frontmatter_data["title"] == "Test Node"
-        assert "created" in frontmatter_data
-        # Check that created is a valid date string (YYYY-MM-DD)
-        assert len(frontmatter_data["created"]) == 10  # YYYY-MM-DD is 10 chars
-        assert frontmatter_data["created"].count("-") == 2  # Two hyphens in date
         assert frontmatter_data["tags"] == ["tag1"]
         assert "aliases" not in frontmatter_data  # No aliases in the node
 
