@@ -1,12 +1,15 @@
+import json
 import tomllib  # Standard library in Python 3.11+
+from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pypandoc  # type: ignore
+import yaml
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
-from org_roam_to_obsidian.database import OrgRoamDatabase, OrgRoamFile
+from org_roam_to_obsidian.database import OrgRoamDatabase, OrgRoamFile, OrgRoamNode
 from org_roam_to_obsidian.logging import get_logger
 
 log = get_logger(__name__)
@@ -268,12 +271,15 @@ class OrgRoamConverter:
 
         return dest_path
 
-    def _process_files(self, files: list[OrgRoamFile]) -> None:
+    def _process_files(
+        self, files: list[OrgRoamFile], file_to_nodes: dict[Path, list[OrgRoamNode]]
+    ) -> None:
         """
-        Process all org files and convert them to markdown.
+        Process all org files and convert them to markdown with frontmatter.
 
         Args:
             files: List of OrgRoamFile objects to process
+            file_to_nodes: Mapping from file paths to their associated nodes
         """
         # For each file in the database
         for org_file in files:
@@ -296,14 +302,41 @@ class OrgRoamConverter:
                 # Convert org to markdown
                 markdown_content = self._convert_file(src_file)
 
+                # Get primary node for this file (first node in file, if any)
+                primary_node = None
+                if src_file in file_to_nodes and file_to_nodes[src_file]:
+                    primary_node = file_to_nodes[src_file][0]
+
+                # Only generate frontmatter if we have a node
+                if primary_node:
+                    # Generate frontmatter data and format it
+                    frontmatter_data = self._generate_frontmatter_data(
+                        primary_node, self.config.conversion
+                    )
+                    frontmatter = self._format_frontmatter(
+                        frontmatter_data, self.config.conversion.frontmatter_format
+                    )
+
+                    # Combine frontmatter and content
+                    final_content = frontmatter + markdown_content
+                else:
+                    # No node found, skip frontmatter
+                    final_content = markdown_content
+                    log.info(
+                        "skipping_frontmatter",
+                        source=str(src_file),
+                        reason="no_node_found",
+                    )
+
                 # Write to destination
                 with open(dest_file, "w") as f:
-                    f.write(markdown_content)
+                    f.write(final_content)
 
                 log.info(
                     "file_converted",
                     source=str(src_file),
                     dest=str(dest_file),
+                    has_frontmatter=primary_node is not None,
                 )
 
             except Exception as e:
@@ -312,6 +345,66 @@ class OrgRoamConverter:
                     file=str(org_file.file_path),
                     error=str(e),
                 )
+
+    def _format_frontmatter(self, data: dict[str, Any], format_type: str) -> str:
+        """
+        Format frontmatter data as YAML or JSON.
+
+        Args:
+            data: Dictionary containing frontmatter data
+            format_type: Format type ('yaml' or 'json')
+
+        Returns:
+            String containing the formatted frontmatter
+        """
+        if format_type == "yaml":
+            frontmatter = "---\n"
+            frontmatter += yaml.dump(data, sort_keys=False)
+            frontmatter += "---\n\n"
+        else:  # JSON format
+            frontmatter = "---\n"
+            frontmatter += json.dumps(data, indent=2)
+            frontmatter += "\n---\n\n"
+
+        return frontmatter
+
+    def _generate_frontmatter_data(
+        self, node: OrgRoamNode, config: ConversionConfig
+    ) -> dict[str, Any]:
+        """
+        Generate frontmatter data dictionary for a markdown file based on node metadata.
+
+        Args:
+            node: OrgRoamNode containing metadata
+            config: Configuration for the frontmatter generation
+
+        Returns:
+            Dictionary containing the frontmatter data
+        """
+        # Extract metadata from node
+        frontmatter_data = {
+            "title": node.title,
+        }
+
+        # Add creation date if available and configured
+        if config.preserve_creation_date:
+            # Try to extract creation date from properties
+            if "CREATED" in node.properties:
+                created = node.properties["CREATED"]
+                frontmatter_data["created"] = created
+            else:
+                # Use current date as fallback
+                frontmatter_data["created"] = datetime.now().strftime("%Y-%m-%d")
+
+        # Add aliases if available
+        if node.aliases:
+            frontmatter_data["aliases"] = node.aliases
+
+        # Add tags if configured and available
+        if config.convert_tags and node.tags:
+            frontmatter_data["tags"] = node.tags
+
+        return frontmatter_data
 
     def run(self) -> None:
         """Run the conversion process."""
@@ -339,9 +432,14 @@ class OrgRoamConverter:
             id_to_file = db.create_id_to_filename_map()
             log.info("id_map_created", count=len(id_to_file))
 
+            # Create file to nodes map for frontmatter generation
+            log.info("creating_file_to_nodes_map")
+            file_to_nodes = db.create_file_to_nodes_map()
+            log.info("file_to_nodes_map_created", count=len(file_to_nodes))
+
             # Process and convert all files
             log.info("processing_files")
-            self._process_files(files)
+            self._process_files(files, file_to_nodes)
             log.info("files_processed", count=len(files))
 
         log.info("conversion_complete")

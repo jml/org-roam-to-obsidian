@@ -589,3 +589,164 @@ class TestOrgRoamConverter:
         )
 
         assert config == expected
+
+    def test_generate_frontmatter_data(self, temp_source, temp_dir):
+        """Generate frontmatter data from node metadata."""
+        from pathlib import Path
+
+        from org_roam_to_obsidian.database import OrgRoamNode
+
+        # Create test node with various metadata
+        node = OrgRoamNode(
+            id="test-node",
+            file_path=Path("/path/to/file.org"),
+            title="Test Node",
+            level=1,
+            pos=100,
+            olp=["Parent", "Child"],
+            properties={"CREATED": "2023-01-15"},
+            tags=["tag1", "tag2"],
+            aliases=["alias1", "alias2"],
+            refs=[],
+        )
+
+        # Create converter with default config
+        config = ConverterConfig(
+            conversion=ConversionConfig(
+                preserve_creation_date=True,
+                convert_tags=True,
+            ),
+            attachments=AttachmentsConfig(),
+            formatting=FormattingConfig(),
+        )
+
+        converter = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=config,
+            source_base_path=temp_source.parent,
+        )
+
+        # Generate frontmatter data
+        frontmatter_data = converter._generate_frontmatter_data(node, config.conversion)
+
+        # Verify frontmatter contents
+        assert frontmatter_data["title"] == "Test Node"
+        assert frontmatter_data["created"] == "2023-01-15"
+        assert frontmatter_data["tags"] == ["tag1", "tag2"]
+        assert frontmatter_data["aliases"] == ["alias1", "alias2"]
+
+    def test_generate_frontmatter_data_without_created_property(
+        self, temp_source, temp_dir
+    ):
+        """Generate frontmatter data with fallback creation date when property is missing."""
+        from pathlib import Path
+
+        from org_roam_to_obsidian.database import OrgRoamNode
+
+        # Create test node without CREATED property
+        node = OrgRoamNode(
+            id="test-node",
+            file_path=Path("/path/to/file.org"),
+            title="Test Node",
+            level=1,
+            pos=100,
+            olp=[],
+            properties={},  # No CREATED property
+            tags=["tag1"],
+            aliases=[],
+            refs=[],
+        )
+
+        # Create converter with preserve_creation_date enabled
+        config = ConverterConfig(
+            conversion=ConversionConfig(
+                preserve_creation_date=True,
+                convert_tags=True,
+            ),
+            attachments=AttachmentsConfig(),
+            formatting=FormattingConfig(),
+        )
+
+        converter = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=config,
+            source_base_path=temp_source.parent,
+        )
+
+        # Generate frontmatter data
+        frontmatter_data = converter._generate_frontmatter_data(node, config.conversion)
+
+        # Verify frontmatter contents
+        assert frontmatter_data["title"] == "Test Node"
+        assert "created" in frontmatter_data
+        # Check that created is a valid date string (YYYY-MM-DD)
+        assert len(frontmatter_data["created"]) == 10  # YYYY-MM-DD is 10 chars
+        assert frontmatter_data["created"].count("-") == 2  # Two hyphens in date
+        assert frontmatter_data["tags"] == ["tag1"]
+        assert "aliases" not in frontmatter_data  # No aliases in the node
+
+    def test_format_frontmatter_yaml(self, temp_source, temp_dir):
+        """Format frontmatter data as YAML."""
+        # Create converter with default config
+        converter = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=DEFAULT_CONFIG,
+            source_base_path=temp_source.parent,
+        )
+
+        # Test data
+        data = {
+            "title": "Test Document",
+            "created": "2023-01-15",
+            "tags": ["test", "example"],
+            "aliases": ["Test", "Example Document"],
+        }
+
+        # Format as YAML
+        yaml_frontmatter = converter._format_frontmatter(data, "yaml")
+
+        # Verify format is correct
+        assert yaml_frontmatter.startswith("---\n")
+        assert yaml_frontmatter.endswith("---\n\n")
+        assert "title: Test Document" in yaml_frontmatter
+        assert "created: '2023-01-15'" in yaml_frontmatter
+        assert "- test" in yaml_frontmatter
+        assert "- example" in yaml_frontmatter
+        assert "- Test" in yaml_frontmatter
+        assert "- Example Document" in yaml_frontmatter
+
+    def test_format_frontmatter_json(self, temp_source, temp_dir):
+        """Format frontmatter data as JSON."""
+        # Create converter with default config
+        converter = OrgRoamConverter(
+            source=temp_source,
+            destination=temp_dir,
+            config=DEFAULT_CONFIG,
+            source_base_path=temp_source.parent,
+        )
+
+        # Test data
+        data = {
+            "title": "Test Document",
+            "created": "2023-01-15",
+            "tags": ["test", "example"],
+            "aliases": ["Test", "Example Document"],
+        }
+
+        # Format as JSON
+        json_frontmatter = converter._format_frontmatter(data, "json")
+
+        # Verify format is correct
+        assert json_frontmatter.startswith("---\n")
+        assert json_frontmatter.endswith("\n---\n\n")
+        assert '"title": "Test Document"' in json_frontmatter
+        assert '"created": "2023-01-15"' in json_frontmatter
+        assert '"tags": [' in json_frontmatter
+        assert '"test"' in json_frontmatter
+        assert '"example"' in json_frontmatter
+        assert '"aliases": [' in json_frontmatter
+        assert '"Test"' in json_frontmatter
+        assert '"Example Document"' in json_frontmatter

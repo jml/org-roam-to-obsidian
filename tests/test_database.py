@@ -570,6 +570,37 @@ def test_context_manager(sample_db_path):
         assert len(files) == 3  # Now includes the file with quoted path
 
 
+def test_create_file_to_nodes_map(sample_db_path):
+    """Create a mapping from file paths to their associated nodes."""
+    db = OrgRoamDatabase(Path(sample_db_path))
+    file_to_nodes = db.create_file_to_nodes_map()
+
+    # Check that the paths are the expected ones
+    file_paths = list(file_to_nodes.keys())
+    expected_paths = [
+        Path("/path/to/file1.org"),
+        Path("/path/to/file2.org"),
+        Path("/path/to/quoted_file.org"),
+    ]
+    assert set(str(p) for p in file_paths) == set(str(p) for p in expected_paths)
+
+    # Check that file1 has 2 nodes, in the correct order by position
+    file1_path = Path("/path/to/file1.org")
+    assert len(file_to_nodes[file1_path]) == 2
+    assert file_to_nodes[file1_path][0].id == "node1"  # pos=100
+    assert file_to_nodes[file1_path][1].id == "node2"  # pos=200
+
+    # Check that file2 has 1 node
+    file2_path = Path("/path/to/file2.org")
+    assert len(file_to_nodes[file2_path]) == 1
+    assert file_to_nodes[file2_path][0].id == "node3"
+
+    # Check that quoted_file has 1 node
+    quoted_file_path = Path("/path/to/quoted_file.org")
+    assert len(file_to_nodes[quoted_file_path]) == 1
+    assert file_to_nodes[quoted_file_path][0].id == "node4"
+
+
 def test_quoted_file_paths_bug(sample_db_path, tmp_path):
     """Demonstrate the bug with quoted file paths in the database."""
     # Connect to the database

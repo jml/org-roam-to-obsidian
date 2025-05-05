@@ -529,3 +529,27 @@ class OrgRoamDatabase:
             id_to_file[row["id"]] = Path(row["file"].strip('"'))
 
         return id_to_file
+
+    def create_file_to_nodes_map(self) -> dict[Path, list[OrgRoamNode]]:
+        """
+        Create a mapping from file paths to their associated nodes.
+
+        This is useful for extracting metadata for frontmatter generation.
+
+        Returns:
+            Dictionary mapping file paths to lists of their associated nodes
+        """
+        # Get all nodes and group them by file path
+        file_to_nodes: dict[Path, list[OrgRoamNode]] = {}
+
+        for node in self.get_all_nodes():
+            file_path = node.file_path
+            if file_path not in file_to_nodes:
+                file_to_nodes[file_path] = []
+            file_to_nodes[file_path].append(node)
+
+        # Sort nodes within each file by position
+        for nodes in file_to_nodes.values():
+            nodes.sort(key=lambda n: n.pos)
+
+        return file_to_nodes
