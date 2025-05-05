@@ -1,6 +1,5 @@
 import json
 import tomllib  # Standard library in Python 3.11+
-from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,7 +18,6 @@ log = get_logger(__name__)
 class ConversionConfig:
     """Configuration for the conversion process."""
 
-    preserve_creation_date: bool = True
     frontmatter_format: str = "yaml"
     convert_tags: bool = True
     link_format: str = "[[${filename}]]"
@@ -385,16 +383,6 @@ class OrgRoamConverter:
         frontmatter_data: dict[str, object] = {
             "title": node.title,
         }
-
-        # Add creation date if available and configured
-        if config.preserve_creation_date:
-            # Try to extract creation date from properties
-            if "CREATED" in node.properties:
-                created = node.properties["CREATED"]
-                frontmatter_data["created"] = created
-            else:
-                # Use current date as fallback
-                frontmatter_data["created"] = datetime.now().strftime("%Y-%m-%d")
 
         # Add aliases if available
         if node.aliases:

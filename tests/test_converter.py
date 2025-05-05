@@ -35,7 +35,6 @@ def temp_config_file(temp_dir):
     """Create a temporary TOML config file."""
     config_content = """
 [conversion]
-preserve_creation_date = true
 frontmatter_format = "yaml"
 convert_tags = true
 link_format = "[[${filename}]]"
@@ -61,7 +60,6 @@ def temp_config_with_base_path(temp_dir, nested_org_files):
     """Create a temporary TOML config file."""
     config_content = """
 [conversion]
-preserve_creation_date = true
 frontmatter_format = "yaml"
 convert_tags = true
 link_format = "[[${filename}]]"
@@ -89,7 +87,6 @@ class TestConfigClasses:
         """Default initialization of ConversionConfig sets expected values."""
         config = ConversionConfig()
         expected = ConversionConfig(
-            preserve_creation_date=True,
             frontmatter_format="yaml",
             convert_tags=True,
             link_format="[[${filename}]]",
@@ -358,7 +355,6 @@ class TestOrgRoamConverter:
         # Create the expected config with the values from the TOML file
         expected_config = ConverterConfig(
             conversion=ConversionConfig(
-                preserve_creation_date=True,
                 frontmatter_format="yaml",
                 convert_tags=True,
                 link_format="[[${filename}]]",
@@ -549,7 +545,6 @@ class TestOrgRoamConverter:
         config_dict = {
             "conversion": {
                 "frontmatter_format": "yaml",
-                "preserve_creation_date": True,
                 "convert_tags": True,
                 "link_format": "[[${filename}]]",
                 "preserve_path_structure": True,
@@ -572,7 +567,6 @@ class TestOrgRoamConverter:
         expected = ConverterConfig(
             conversion=ConversionConfig(
                 frontmatter_format="yaml",
-                preserve_creation_date=True,
                 convert_tags=True,
                 link_format="[[${filename}]]",
                 preserve_path_structure=True,
@@ -604,7 +598,7 @@ class TestOrgRoamConverter:
             level=1,
             pos=100,
             olp=["Parent", "Child"],
-            properties={"CREATED": "2023-01-15"},
+            properties={"CREATED": "2023-01-15"},  # Should be ignored
             tags=["tag1", "tag2"],
             aliases=["alias1", "alias2"],
             refs=[],
@@ -613,7 +607,6 @@ class TestOrgRoamConverter:
         # Create converter with default config
         config = ConverterConfig(
             conversion=ConversionConfig(
-                preserve_creation_date=True,
                 convert_tags=True,
             ),
             attachments=AttachmentsConfig(),
@@ -632,21 +625,20 @@ class TestOrgRoamConverter:
 
         # Verify frontmatter contents
         assert frontmatter_data["title"] == "Test Node"
-        assert frontmatter_data["created"] == "2023-01-15"
         assert frontmatter_data["tags"] == ["tag1", "tag2"]
         assert frontmatter_data["aliases"] == ["alias1", "alias2"]
 
-    def test_generate_frontmatter_data_without_created_property(
+    def test_generate_frontmatter_data_without_aliases_and_tags(
         self, temp_source, temp_dir
     ):
         """
-        Generate frontmatter data with fallback creation date when property is missing.
+        Generate frontmatter data when aliases and tags are missing.
         """
         from pathlib import Path
 
         from org_roam_to_obsidian.database import OrgRoamNode
 
-        # Create test node without CREATED property
+        # Create test node without aliases and tags
         node = OrgRoamNode(
             id="test-node",
             file_path=Path("/path/to/file.org"),
@@ -654,16 +646,15 @@ class TestOrgRoamConverter:
             level=1,
             pos=100,
             olp=[],
-            properties={},  # No CREATED property
-            tags=["tag1"],
+            properties={},
+            tags=[],
             aliases=[],
             refs=[],
         )
 
-        # Create converter with preserve_creation_date enabled
+        # Create converter with default config
         config = ConverterConfig(
             conversion=ConversionConfig(
-                preserve_creation_date=True,
                 convert_tags=True,
             ),
             attachments=AttachmentsConfig(),
@@ -682,7 +673,7 @@ class TestOrgRoamConverter:
 
         # Verify frontmatter contents
         assert frontmatter_data["title"] == "Test Node"
-        assert frontmatter_data["tags"] == ["tag1"]
+        assert "tags" not in frontmatter_data  # No tags in the node
         assert "aliases" not in frontmatter_data  # No aliases in the node
 
     def test_format_frontmatter_yaml(self, temp_source, temp_dir):
@@ -698,7 +689,6 @@ class TestOrgRoamConverter:
         # Test data
         data = {
             "title": "Test Document",
-            "created": "2023-01-15",
             "tags": ["test", "example"],
             "aliases": ["Test", "Example Document"],
         }
@@ -710,7 +700,6 @@ class TestOrgRoamConverter:
         assert yaml_frontmatter.startswith("---\n")
         assert yaml_frontmatter.endswith("---\n\n")
         assert "title: Test Document" in yaml_frontmatter
-        assert "created: '2023-01-15'" in yaml_frontmatter
         assert "- test" in yaml_frontmatter
         assert "- example" in yaml_frontmatter
         assert "- Test" in yaml_frontmatter
@@ -729,7 +718,6 @@ class TestOrgRoamConverter:
         # Test data
         data = {
             "title": "Test Document",
-            "created": "2023-01-15",
             "tags": ["test", "example"],
             "aliases": ["Test", "Example Document"],
         }
@@ -741,7 +729,6 @@ class TestOrgRoamConverter:
         assert json_frontmatter.startswith("---\n")
         assert json_frontmatter.endswith("\n---\n\n")
         assert '"title": "Test Document"' in json_frontmatter
-        assert '"created": "2023-01-15"' in json_frontmatter
         assert '"tags": [' in json_frontmatter
         assert '"test"' in json_frontmatter
         assert '"example"' in json_frontmatter
