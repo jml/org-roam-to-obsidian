@@ -28,11 +28,9 @@ org-roam-to-obsidian = "org_roam_to_obsidian.__main__:main"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-fixable = ["I"]
 
 [tool.pytest.ini_options]
 pythonpath = "src"

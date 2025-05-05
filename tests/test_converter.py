@@ -639,7 +639,9 @@ class TestOrgRoamConverter:
     def test_generate_frontmatter_data_without_created_property(
         self, temp_source, temp_dir
     ):
-        """Generate frontmatter data with fallback creation date when property is missing."""
+        """
+        Generate frontmatter data with fallback creation date when property is missing.
+        """
         from pathlib import Path
 
         from org_roam_to_obsidian.database import OrgRoamNode
