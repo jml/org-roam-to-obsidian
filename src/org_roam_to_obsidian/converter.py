@@ -173,21 +173,25 @@ class OrgRoamConverter:
         log.info("converted_file", source=str(src_file))
         return cast(str, markdown_content)
 
-    def _get_destination_path(self, src_file: Path) -> Path:
+    def _get_destination_path(self, node: "OrgRoamNode") -> Path:
         """
         Determine the destination path for a converted markdown file.
 
         Preserves the directory structure from the source based on configuration,
-        and changes the extension to .md
+        and changes the extension to .md. Uses the node's title as the filename.
 
         Args:
-            src_file: Path to the source org file
+            node: OrgRoamNode containing metadata including title and file_path
 
         Returns:
             Path to the destination markdown file
         """
-        # Change extension to .md
-        dest_filename = src_file.stem + ".md"
+        # Get source file path from the node
+        src_file = node.file_path
+
+        # Convert node title to a valid filename
+        safe_title = node.title.replace("/", "-").replace("\\", "-")
+        dest_filename = f"{safe_title}.md"
 
         if self.config.conversion.preserve_path_structure:
             # Get the base path for calculating relative paths
@@ -285,8 +289,23 @@ class OrgRoamConverter:
                 # Get source file path
                 src_file = Path(org_file.file_path)
 
-                # Get destination path for the markdown file
-                dest_file = self._get_destination_path(src_file)
+                # Get primary node for this file (first node in file, if any)
+                primary_node = None
+                if src_file in file_to_nodes and file_to_nodes[src_file]:
+                    primary_node = file_to_nodes[src_file][0]
+
+                # Skip files without nodes since we need the node's title for
+                # the filename
+                if primary_node is None:
+                    log.info(
+                        "skipping_file",
+                        source=str(src_file),
+                        reason="no_node_found",
+                    )
+                    continue
+
+                # Get destination path for the markdown file using node title
+                dest_file = self._get_destination_path(primary_node)
 
                 # Skip if dry run
                 if self.dry_run:
@@ -300,31 +319,16 @@ class OrgRoamConverter:
                 # Convert org to markdown
                 markdown_content = self._convert_file(src_file)
 
-                # Get primary node for this file (first node in file, if any)
-                primary_node = None
-                if src_file in file_to_nodes and file_to_nodes[src_file]:
-                    primary_node = file_to_nodes[src_file][0]
+                # Generate frontmatter data and format it
+                frontmatter_data = self._generate_frontmatter_data(
+                    primary_node, self.config.conversion
+                )
+                frontmatter = self._format_frontmatter(
+                    frontmatter_data, self.config.conversion.frontmatter_format
+                )
 
-                # Only generate frontmatter if we have a node
-                if primary_node:
-                    # Generate frontmatter data and format it
-                    frontmatter_data = self._generate_frontmatter_data(
-                        primary_node, self.config.conversion
-                    )
-                    frontmatter = self._format_frontmatter(
-                        frontmatter_data, self.config.conversion.frontmatter_format
-                    )
-
-                    # Combine frontmatter and content
-                    final_content = frontmatter + markdown_content
-                else:
-                    # No node found, skip frontmatter
-                    final_content = markdown_content
-                    log.info(
-                        "skipping_frontmatter",
-                        source=str(src_file),
-                        reason="no_node_found",
-                    )
+                # Combine frontmatter and content
+                final_content = frontmatter + markdown_content
 
                 # Write to destination
                 with open(dest_file, "w") as f:
@@ -334,7 +338,7 @@ class OrgRoamConverter:
                     "file_converted",
                     source=str(src_file),
                     dest=str(dest_file),
-                    has_frontmatter=primary_node is not None,
+                    title=primary_node.title,
                 )
 
             except Exception as e:

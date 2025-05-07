@@ -218,20 +218,42 @@ class TestOrgRoamConverter:
             source_base_path=nested_org_files["base_path"],
         )
 
-        # Test for each file in the nested structure
-        root_file = nested_org_files["files"][0]  # root.org
-        dir1_file = nested_org_files["files"][1]  # dir1/file1.org
-        dir2_file = nested_org_files["files"][2]  # dir1/dir2/file2.org
+        # Test with OrgRoamNode objects
+        from org_roam_to_obsidian.database import OrgRoamNode
 
-        # Check that paths are preserved correctly
-        root_dest = converter._get_destination_path(root_file)
-        dir1_dest = converter._get_destination_path(dir1_file)
-        dir2_dest = converter._get_destination_path(dir2_file)
+        # Create test nodes with titles different from filenames
+        root_node = OrgRoamNode(
+            id="root-id",
+            file_path=nested_org_files["files"][0],  # root.org
+            title="Root Node Title",
+            level=1,
+            pos=0,
+        )
+        dir1_node = OrgRoamNode(
+            id="dir1-id",
+            file_path=nested_org_files["files"][1],  # dir1/file1.org
+            title="Dir1 Node Title",
+            level=1,
+            pos=0,
+        )
+        dir2_node = OrgRoamNode(
+            id="dir2-id",
+            file_path=nested_org_files["files"][2],  # dir1/dir2/file2.org
+            title="Dir2 Node Title",
+            level=1,
+            pos=0,
+        )
 
-        # Verify destinations maintain the same structure
-        assert root_dest == output_dir / "root.md"
-        assert dir1_dest == output_dir / "dir1" / "file1.md"
-        assert dir2_dest == output_dir / "dir1" / "dir2" / "file2.md"
+        # Check that paths are preserved correctly with node titles
+        root_dest = converter._get_destination_path(root_node)
+        dir1_dest = converter._get_destination_path(dir1_node)
+        dir2_dest = converter._get_destination_path(dir2_node)
+
+        # Verify destinations maintain the same structure but use node
+        # title for filename
+        assert root_dest == output_dir / "Root Node Title.md"
+        assert dir1_dest == output_dir / "dir1" / "Dir1 Node Title.md"
+        assert dir2_dest == output_dir / "dir1" / "dir2" / "Dir2 Node Title.md"
 
         # Verify parent directories were created
         assert output_dir.exists()
@@ -260,23 +282,88 @@ class TestOrgRoamConverter:
             source_base_path=temp_source.parent,
         )
 
-        # Test for each file in the nested structure
-        root_file = nested_org_files["files"][0]  # root.org
-        dir1_file = nested_org_files["files"][1]  # dir1/file1.org
-        dir2_file = nested_org_files["files"][2]  # dir1/dir2/file2.org
+        # Test with OrgRoamNode objects
+        from org_roam_to_obsidian.database import OrgRoamNode
 
-        # Check that paths are flattened
-        root_dest = converter._get_destination_path(root_file)
-        dir1_dest = converter._get_destination_path(dir1_file)
-        dir2_dest = converter._get_destination_path(dir2_file)
+        # Create test nodes with titles different from filenames
+        root_node = OrgRoamNode(
+            id="root-id",
+            file_path=nested_org_files["files"][0],  # root.org
+            title="Root Node Title",
+            level=1,
+            pos=0,
+        )
+        dir1_node = OrgRoamNode(
+            id="dir1-id",
+            file_path=nested_org_files["files"][1],  # dir1/file1.org
+            title="Dir1 Node Title",
+            level=1,
+            pos=0,
+        )
+        dir2_node = OrgRoamNode(
+            id="dir2-id",
+            file_path=nested_org_files["files"][2],  # dir1/dir2/file2.org
+            title="Dir2 Node Title with / special chars",
+            level=1,
+            pos=0,
+        )
 
-        # Verify all files end up in the root output directory
-        assert root_dest == output_dir / "root.md"
-        assert dir1_dest == output_dir / "file1.md"
-        assert dir2_dest == output_dir / "file2.md"
+        # Check that paths are flattened and use node titles
+        root_dest = converter._get_destination_path(root_node)
+        dir1_dest = converter._get_destination_path(dir1_node)
+        dir2_dest = converter._get_destination_path(dir2_node)
+
+        # Verify all files end up in the root output directory with node titles
+        assert root_dest == output_dir / "Root Node Title.md"
+        assert dir1_dest == output_dir / "Dir1 Node Title.md"
+        assert dir2_dest == output_dir / "Dir2 Node Title with - special chars.md"
 
         # Verify parent directory was created
         assert output_dir.exists()
+
+    def test_get_destination_path_handles_special_characters(
+        self, temp_source, temp_dir
+    ):
+        """Test handling of special characters in node titles for filenames."""
+        config = ConverterConfig(
+            conversion=ConversionConfig(),
+            attachments=AttachmentsConfig(),
+            formatting=FormattingConfig(),
+        )
+
+        output_dir = temp_dir / "output_special"
+        converter = OrgRoamConverter(
+            source=temp_source,
+            destination=output_dir,
+            config=config,
+            source_base_path=temp_source.parent,
+        )
+
+        # Create a test file
+        test_file = temp_dir / "test.org"
+        with open(test_file, "w") as f:
+            f.write("* Test content\n")
+
+        from org_roam_to_obsidian.database import OrgRoamNode
+
+        # Test with various special characters in titles
+        special_char_cases = [
+            ("Title with / slashes", "Title with - slashes.md"),
+            ("Title with \\ backslashes", "Title with - backslashes.md"),
+            ("Title with both / and \\ slashes", "Title with both - and - slashes.md"),
+        ]
+
+        for title, expected_filename in special_char_cases:
+            node = OrgRoamNode(
+                id="test-id",
+                file_path=test_file,
+                title=title,
+                level=1,
+                pos=0,
+            )
+
+            dest_path = converter._get_destination_path(node)
+            assert dest_path.name == expected_filename
 
     def test_init(self, temp_source, temp_dir):
         """Converter initialization stores source, destination and configuration."""
@@ -398,14 +485,35 @@ class TestOrgRoamConverter:
         assert converter.source_base_path == base_path
 
         # Test for each file in the nested structure
-        root_file = nested_org_files["files"][0]  # root.org
-        dir1_file = nested_org_files["files"][1]  # dir1/file1.org
-        dir2_file = nested_org_files["files"][2]  # dir1/dir2/file2.org
+        from org_roam_to_obsidian.database import OrgRoamNode
+
+        # Create test nodes
+        root_node = OrgRoamNode(
+            id="root-id",
+            file_path=nested_org_files["files"][0],  # root.org
+            title="root",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
+        dir1_node = OrgRoamNode(
+            id="dir1-id",
+            file_path=nested_org_files["files"][1],  # dir1/file1.org
+            title="file1",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
+        dir2_node = OrgRoamNode(
+            id="dir2-id",
+            file_path=nested_org_files["files"][2],  # dir1/dir2/file2.org
+            title="file2",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
 
         # Check that paths are preserved correctly using the provided base path
-        root_dest = converter._get_destination_path(root_file)
-        dir1_dest = converter._get_destination_path(dir1_file)
-        dir2_dest = converter._get_destination_path(dir2_file)
+        root_dest = converter._get_destination_path(root_node)
+        dir1_dest = converter._get_destination_path(dir1_node)
+        dir2_dest = converter._get_destination_path(dir2_node)
 
         # Verify destinations maintain the same structure relative to base_path
         assert root_dest == temp_dir / "root.md"
@@ -430,14 +538,35 @@ class TestOrgRoamConverter:
         assert converter.source_base_path == base_path
 
         # Test for each file in the nested structure
-        root_file = nested_org_files["files"][0]  # root.org
-        dir1_file = nested_org_files["files"][1]  # dir1/file1.org
-        dir2_file = nested_org_files["files"][2]  # dir1/dir2/file2.org
+        from org_roam_to_obsidian.database import OrgRoamNode
+
+        # Create test nodes
+        root_node = OrgRoamNode(
+            id="root-id",
+            file_path=nested_org_files["files"][0],  # root.org
+            title="root",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
+        dir1_node = OrgRoamNode(
+            id="dir1-id",
+            file_path=nested_org_files["files"][1],  # dir1/file1.org
+            title="file1",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
+        dir2_node = OrgRoamNode(
+            id="dir2-id",
+            file_path=nested_org_files["files"][2],  # dir1/dir2/file2.org
+            title="file2",  # Using same name as file for consistent assertions
+            level=1,
+            pos=0,
+        )
 
         # Check that paths are preserved correctly using the provided base path
-        root_dest = converter._get_destination_path(root_file)
-        dir1_dest = converter._get_destination_path(dir1_file)
-        dir2_dest = converter._get_destination_path(dir2_file)
+        root_dest = converter._get_destination_path(root_node)
+        dir1_dest = converter._get_destination_path(dir1_node)
+        dir2_dest = converter._get_destination_path(dir2_node)
 
         # Verify destinations maintain the same structure relative to base_path
         assert root_dest == temp_dir / "root.md"
