@@ -1,4 +1,5 @@
 import json
+import re
 import tomllib  # Standard library in Python 3.11+
 from pathlib import Path
 from typing import Any, cast
@@ -20,8 +21,10 @@ class ConversionConfig:
 
     frontmatter_format: str = "yaml"
     convert_tags: bool = True
-    link_format: str = "[[${filename}]]"
+    link_format: str = "[[${title}]]"
     preserve_path_structure: bool = True
+    preserve_link_descriptions: bool = True
+    link_description_format: str = "[[${title}|${description}]]"
 
     @field_validator("frontmatter_format")
     @classmethod
@@ -34,8 +37,17 @@ class ConversionConfig:
     @field_validator("link_format")
     @classmethod
     def validate_link_format(cls, v: str) -> str:
-        if "${filename}" not in v:
-            raise ValueError("Link format must contain ${filename} placeholder")
+        if "${title}" not in v:
+            raise ValueError("Link format must contain ${title} placeholder")
+        return v
+
+    @field_validator("link_description_format")
+    @classmethod
+    def validate_link_description_format(cls, v: str) -> str:
+        if "${title}" not in v or "${description}" not in v:
+            raise ValueError(
+                "Link description format must contain both ${title} and ${description} placeholders"
+            )
         return v
 
 
@@ -120,6 +132,59 @@ class OrgRoamConverter:
             # We can't modify self.destination as it's frozen,
             # but we can create the directory if needed
             self.destination.mkdir(parents=True, exist_ok=True)
+
+    def _convert_org_roam_links(
+        self,
+        content: str,
+        id_to_node: dict[str, OrgRoamNode],
+        config: ConversionConfig,
+    ) -> str:
+        """
+        Convert Org-roam ID links to Obsidian title links.
+
+        Args:
+            content: Markdown content with org-roam links
+            id_to_node: Mapping from node IDs to OrgRoamNode objects
+            config: Configuration settings for link conversion
+
+        Returns:
+            Markdown content with converted links
+        """
+        # Pattern for org-roam links: [[id:XXXXXXXX-XXXX][Description]] or [[id:XXXXXXXX-XXXX]]
+        # First group is the ID, second group (optional) is the description
+        org_roam_link_pattern = re.compile(r"\[\[id:([^\]]+)\](?:\[([^\]]*)\])?\]")
+
+        def replacement(match: re.Match[str]) -> str:
+            node_id = match.group(1)
+            description = match.group(2) if match.group(2) else None
+
+            # If we can't find the node ID, keep the original link
+            if node_id not in id_to_node:
+                log.warning(
+                    "unknown_node_id_in_link",
+                    node_id=node_id,
+                    description=description,
+                )
+                # Return the original match
+                return match.group(0)
+
+            # Get the node's title
+            node = id_to_node[node_id]
+            title = node.title
+
+            # If the link has a description and we want to preserve it, use link format with description
+            if description and config.preserve_link_descriptions:
+                return config.link_description_format.replace(
+                    "${title}", title
+                ).replace("${description}", description)
+
+            # Otherwise use the basic link format
+            return config.link_format.replace("${title}", title)
+
+        # Replace all org-roam links with Obsidian links
+        converted_content = org_roam_link_pattern.sub(replacement, content)
+
+        return converted_content
 
     @classmethod
     def from_paths(
@@ -274,7 +339,10 @@ class OrgRoamConverter:
         return dest_path
 
     def _process_files(
-        self, files: list[OrgRoamFile], file_to_nodes: dict[Path, list[OrgRoamNode]]
+        self,
+        files: list[OrgRoamFile],
+        file_to_nodes: dict[Path, list[OrgRoamNode]],
+        id_to_node: dict[str, OrgRoamNode],
     ) -> None:
         """
         Process all org files and convert them to markdown with frontmatter.
@@ -282,6 +350,7 @@ class OrgRoamConverter:
         Args:
             files: List of OrgRoamFile objects to process
             file_to_nodes: Mapping from file paths to their associated nodes
+            id_to_node: Mapping from node IDs to OrgRoamNode objects
         """
         # For each file in the database
         for org_file in files:
@@ -318,6 +387,17 @@ class OrgRoamConverter:
 
                 # Convert org to markdown
                 markdown_content = self._convert_file(src_file)
+
+                # Convert org-roam links to Obsidian links
+                markdown_content = self._convert_org_roam_links(
+                    markdown_content,
+                    id_to_node,
+                    self.config.conversion,
+                )
+                log.info(
+                    "converted_links",
+                    source=str(src_file),
+                )
 
                 # Generate frontmatter data and format it
                 frontmatter_data = self._generate_frontmatter_data(
@@ -424,6 +504,11 @@ class OrgRoamConverter:
             id_to_file = db.create_id_to_filename_map()
             log.info("id_map_created", count=len(id_to_file))
 
+            # Create ID to node map for link conversion
+            log.info("creating_id_to_node_map")
+            id_to_node = {node.id: node for node in nodes}
+            log.info("id_to_node_map_created", count=len(id_to_node))
+
             # Create file to nodes map for frontmatter generation
             log.info("creating_file_to_nodes_map")
             file_to_nodes = db.create_file_to_nodes_map()
@@ -431,7 +516,7 @@ class OrgRoamConverter:
 
             # Process and convert all files
             log.info("processing_files")
-            self._process_files(files, file_to_nodes)
+            self._process_files(files, file_to_nodes, id_to_node)
             log.info("files_processed", count=len(files))
 
         log.info("conversion_complete")
