@@ -85,19 +85,19 @@ def sample_db_path():
             "INSERT INTO files (file, hash, atime, mtime) VALUES (?, ?, ?, ?)",
             [
                 (
-                    "/path/to/file1.org",
+                    '"/path/to/file1.org"',  # Proper Elisp string format
                     "hash1",
                     "(25821 50943 0 0)",
                     "(25821 50943 0 0)",
                 ),
                 (
-                    "/path/to/file2.org",
+                    '"/path/to/file2.org"',  # Proper Elisp string format
                     "hash2",
                     "(26316 12970 0 0)",
                     "(26316 12970 0 0)",
                 ),
                 (
-                    '"/path/to/quoted_file.org"',  # Note the quotes around the path
+                    '"/path/to/quoted_file.org"',  # Already in correct format
                     "hash3",
                     "(26316 12970 0 0)",
                     "(26316 12970 0 0)",
@@ -112,39 +112,39 @@ def sample_db_path():
             [
                 (
                     "node1",
-                    "/path/to/file1.org",
+                    '"/path/to/file1.org"',  # Proper Elisp string format
                     "Node 1",
                     1,
                     100,
-                    '{"CREATED": "20220101"}',
-                    '["Parent", "Child"]',
+                    '(:CREATED "20220101")',  # Proper Elisp plist format
+                    '("Parent" "Child")',  # Proper Elisp list format
                 ),
                 (
                     "node2",
-                    "/path/to/file1.org",
+                    '"/path/to/file1.org"',  # Proper Elisp string format
                     "Node 2",
                     2,
                     200,
-                    '{"CREATED": "20220102"}',
-                    '["Parent", "Child", "Grandchild"]',
+                    '(:CREATED "20220102")',  # Proper Elisp plist format
+                    '("Parent" "Child" "Grandchild")',  # Proper Elisp list format
                 ),
                 (
                     "node3",
-                    "/path/to/file2.org",
+                    '"/path/to/file2.org"',  # Proper Elisp string format
                     "Node 3",
                     1,
                     100,
-                    '{"CREATED": "20220103"}',
-                    "[]",
+                    '(:CREATED "20220103")',  # Proper Elisp plist format
+                    "()",  # Proper Elisp empty list
                 ),
                 (
                     "node4",
-                    '"/path/to/quoted_file.org"',  # Note the quotes around the path
+                    '"/path/to/quoted_file.org"',  # Already in correct format
                     "Node 4",
                     1,
                     100,
-                    '{"CREATED": "20220104"}',
-                    "[]",
+                    '(:CREATED "20220104")',  # Proper Elisp plist format
+                    "()",  # Proper Elisp empty list
                 ),
             ],
         )
@@ -182,8 +182,18 @@ def sample_db_path():
         conn.executemany(
             "INSERT INTO links (source, dest, type, properties) VALUES (?, ?, ?, ?)",
             [
-                ("node1", "node2", "id", '{"position": 100}'),
-                ("node2", "node3", "id", '{"position": 200}'),
+                (
+                    "node1",
+                    "node2",
+                    "id",
+                    "(:position 100)",
+                ),  # Proper Elisp plist format
+                (
+                    "node2",
+                    "node3",
+                    "id",
+                    "(:position 200)",
+                ),  # Proper Elisp plist format
             ],
         )
 
@@ -248,15 +258,15 @@ def test_orgroamfile_creation():
     file = OrgRoamFile(
         file_path=Path("/path/to/file.org"),
         hash="abcdef1234567890",
-        atime="(26316 12970 418226 295000)",
-        mtime="(25821 50943 0 0)",
+        atime=(26316, 12970, 418226, 295000),
+        mtime=(25821, 50943, 0, 0),
     )
 
     expected = OrgRoamFile(
         file_path=Path("/path/to/file.org"),
         hash="abcdef1234567890",
-        atime="(26316 12970 418226 295000)",
-        mtime="(25821 50943 0 0)",
+        atime=(26316, 12970, 418226, 295000),
+        mtime=(25821, 50943, 0, 0),
     )
 
     assert file == expected
@@ -291,22 +301,22 @@ def test_get_all_files(sample_db_path):
     expected_file1 = OrgRoamFile(
         file_path=Path("/path/to/file1.org"),
         hash="hash1",
-        atime="(25821 50943 0 0)",
-        mtime="(25821 50943 0 0)",
+        atime=(25821, 50943, 0, 0),
+        mtime=(25821, 50943, 0, 0),
     )
 
     expected_file2 = OrgRoamFile(
         file_path=Path("/path/to/file2.org"),
         hash="hash2",
-        atime="(26316 12970 0 0)",
-        mtime="(26316 12970 0 0)",
+        atime=(26316, 12970, 0, 0),
+        mtime=(26316, 12970, 0, 0),
     )
 
     expected_quoted_file = OrgRoamFile(
         file_path=Path("/path/to/quoted_file.org"),
         hash="hash3",
-        atime="(26316 12970 0 0)",
-        mtime="(26316 12970 0 0)",
+        atime=(26316, 12970, 0, 0),
+        mtime=(26316, 12970, 0, 0),
     )
 
     assert files_by_path["/path/to/file1.org"] == expected_file1
@@ -644,16 +654,16 @@ def test_strip_quotes_from_file_paths(sample_db_path, tmp_path):
     cursor = db.conn.execute("SELECT file FROM files ORDER BY file")
     raw_paths = [row["file"] for row in cursor]
 
-    # Find a quoted path
-    quoted_path = next((path for path in raw_paths if '"' in path), None)
-    assert quoted_path is not None, "No quoted path found in test database"
+    # Find the specific "quoted_file.org" path
+    quoted_path = next((path for path in raw_paths if "quoted_file.org" in path), None)
+    assert quoted_path is not None, "No quoted_file.org path found in test database"
 
     # Get OrgRoamFile objects using our fixed implementation
     files = list(db.get_all_files())
 
     # Find the file object that corresponds to the quoted path
     quoted_file = next(
-        (f for f in files if f.file_path.name == Path(quoted_path.strip('"')).name),
+        (f for f in files if "quoted_file.org" in str(f.file_path)),
         None,
     )
     assert quoted_file is not None, "Could not find file with quoted path in results"
@@ -680,8 +690,8 @@ def test_strip_quotes_from_file_paths(sample_db_path, tmp_path):
     expected_file = OrgRoamFile(
         file_path=Path(quoted_path.strip('"')),
         hash="hash3",
-        atime="(26316 12970 0 0)",
-        mtime="(26316 12970 0 0)",
+        atime=(26316, 12970, 0, 0),
+        mtime=(26316, 12970, 0, 0),
     )
 
     assert quoted_file == expected_file

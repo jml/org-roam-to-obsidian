@@ -9,10 +9,18 @@ elements needed for conversion to Obsidian.
 import sqlite3
 from dataclasses import field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Tuple
 
 from pydantic.dataclasses import dataclass
 
+from org_roam_to_obsidian.elisp import parse_elisp
+from org_roam_to_obsidian.elisp_parser import (
+    ParseError,
+    parse_elisp_list,
+    parse_elisp_path,
+    parse_elisp_plist_to_dict,
+    parse_elisp_time,
+)
 from org_roam_to_obsidian.logging import get_logger
 
 log = get_logger(__name__)
@@ -50,8 +58,12 @@ class OrgRoamFile:
 
     file_path: Path
     hash: str
-    atime: str  # Emacs Lisp time tuple: (HIGH LOW MICROSEC PICOSEC)
-    mtime: str  # Emacs Lisp time tuple: (HIGH LOW MICROSEC PICOSEC)
+    atime: Tuple[
+        int, int, int, int
+    ]  # Emacs Lisp time tuple: (HIGH LOW MICROSEC PICOSEC)
+    mtime: Tuple[
+        int, int, int, int
+    ]  # Emacs Lisp time tuple: (HIGH LOW MICROSEC PICOSEC)
 
 
 class OrgRoamDatabase:
@@ -110,12 +122,48 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            yield OrgRoamFile(
-                file_path=Path(row["file"].strip('"')),
-                hash=row["hash"],
-                atime=row["atime"],
-                mtime=row["mtime"],
-            )
+            try:
+                # Parse file path as Elisp string
+                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+
+                # Parse time values
+                atime_tuple = (0, 0, 0, 0)
+                mtime_tuple = (0, 0, 0, 0)
+
+                try:
+                    if row["atime"]:
+                        atime_expr = parse_elisp(row["atime"])[0]
+                        atime_tuple = parse_elisp_time(atime_expr)
+                except ParseError:
+                    log.warning(
+                        "failed_to_parse_atime",
+                        file=str(file_path),
+                        atime=row["atime"],
+                    )
+
+                try:
+                    if row["mtime"]:
+                        mtime_expr = parse_elisp(row["mtime"])[0]
+                        mtime_tuple = parse_elisp_time(mtime_expr)
+                except ParseError:
+                    log.warning(
+                        "failed_to_parse_mtime",
+                        file=str(file_path),
+                        mtime=row["mtime"],
+                    )
+
+                yield OrgRoamFile(
+                    file_path=file_path,
+                    hash=row["hash"],
+                    atime=atime_tuple,
+                    mtime=mtime_tuple,
+                )
+            except ParseError as e:
+                log.warning(
+                    "failed_to_parse_file_path",
+                    path=row["file"],
+                    error=str(e),
+                )
 
     def get_all_nodes(self) -> Iterator[OrgRoamNode]:
         """
@@ -137,56 +185,55 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Convert properties from JSON string to dict
-            properties = {}
-            if row["properties"]:
-                try:
-                    # Org-roam stores properties as a JSON object
-                    import json
+            try:
+                # Convert properties from Elisp string to dict
+                properties = {}
+                if row["properties"]:
+                    try:
+                        expressions = parse_elisp(row["properties"])
+                        if expressions:
+                            properties = parse_elisp_plist_to_dict(expressions[0])
+                    except ParseError:
+                        log.warning(
+                            "failed_to_parse_properties",
+                            node_id=row["id"],
+                            properties=row["properties"],
+                        )
 
-                    properties = json.loads(row["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    log.warning(
-                        "failed_to_parse_properties",
-                        node_id=row["id"],
-                        properties=row["properties"],
-                    )
+                # Convert tags from comma-separated string to list
+                tags = []
+                if row["tags"]:
+                    tags = row["tags"].split(",")
 
-            # Convert tags from comma-separated string to list
-            tags = []
-            if row["tags"]:
-                tags = row["tags"].split(",")
+                # Get node aliases
+                aliases = self._get_node_aliases(row["id"])
 
-            # Get node aliases
-            aliases = self._get_node_aliases(row["id"])
+                # Get node references
+                refs = self._get_node_refs(row["id"])
 
-            # Get node references
-            refs = self._get_node_refs(row["id"])
+                # Convert file path from Elisp string
+                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
 
-            # Convert olp from JSON array to list of strings
-            olp = []
-            if row["olp"]:
-                try:
-                    import json
+                olp = parse_olp(row["olp"]) if row["olp"] else []
 
-                    olp = json.loads(row["olp"])
-                except (json.JSONDecodeError, TypeError):
-                    log.warning(
-                        "failed_to_parse_olp", node_id=row["id"], olp=row["olp"]
-                    )
-
-            yield OrgRoamNode(
-                id=row["id"],
-                file_path=Path(row["file"].strip('"')),
-                title=row["title"],
-                level=row["level"],
-                pos=row["pos"],
-                olp=olp,
-                properties=properties,
-                tags=tags,
-                aliases=aliases,
-                refs=refs,
-            )
+                yield OrgRoamNode(
+                    id=row["id"],
+                    file_path=file_path,
+                    title=row["title"],
+                    level=row["level"],
+                    pos=row["pos"],
+                    olp=olp,
+                    properties=properties,
+                    tags=tags,
+                    aliases=aliases,
+                    refs=refs,
+                )
+            except ParseError as e:
+                log.warning(
+                    "failed_to_parse_node",
+                    node_id=row["id"],
+                    error=str(e),
+                )
 
     def _get_node_aliases(self, node_id: str) -> list[str]:
         """
@@ -253,59 +300,63 @@ class OrgRoamDatabase:
         if not row:
             return None
 
-        # Get node tags
-        tags_cursor = self.conn.execute(
-            """
-            SELECT tag
-            FROM tags
-            WHERE node_id = ?
-            """,
-            (node_id,),
-        )
-        tags = [tag_row["tag"] for tag_row in tags_cursor]
+        try:
+            # Get node tags
+            tags_cursor = self.conn.execute(
+                """
+                SELECT tag
+                FROM tags
+                WHERE node_id = ?
+                """,
+                (node_id,),
+            )
+            tags = [tag_row["tag"] for tag_row in tags_cursor]
 
-        # Get node aliases
-        aliases = self._get_node_aliases(node_id)
+            # Get node aliases
+            aliases = self._get_node_aliases(node_id)
 
-        # Get node references
-        refs = self._get_node_refs(node_id)
+            # Get node references
+            refs = self._get_node_refs(node_id)
 
-        # Convert properties from JSON string to dict
-        properties = {}
-        if row["properties"]:
-            try:
-                import json
+            # Convert properties from Elisp to dict
+            properties = {}
+            if row["properties"]:
+                try:
+                    expressions = parse_elisp(row["properties"])
+                    if expressions:
+                        properties = parse_elisp_plist_to_dict(expressions[0])
+                except ParseError:
+                    log.warning(
+                        "failed_to_parse_properties",
+                        node_id=row["id"],
+                        properties=row["properties"],
+                    )
 
-                properties = json.loads(row["properties"])
-            except (json.JSONDecodeError, TypeError):
-                log.warning(
-                    "failed_to_parse_properties",
-                    node_id=row["id"],
-                    properties=row["properties"],
-                )
+            # Convert file path from Elisp string
+            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
 
-        # Convert olp from JSON array to list of strings
-        olp = []
-        if row["olp"]:
-            try:
-                import json
+            # Convert olp from Elisp array to list of strings
+            olp = parse_olp(row["olp"]) if row["olp"] else []
 
-                olp = json.loads(row["olp"])
-            except (json.JSONDecodeError, TypeError):
-                log.warning("failed_to_parse_olp", node_id=row["id"], olp=row["olp"])
-
-        return OrgRoamNode(
-            id=row["id"],
-            file_path=Path(row["file"].strip('"')),
-            title=row["title"],
-            level=row["level"],
-            pos=row["pos"],
-            olp=olp,
-            properties=properties,
-            tags=tags,
-            aliases=aliases,
-            refs=refs,
-        )
+            return OrgRoamNode(
+                id=row["id"],
+                file_path=file_path,
+                title=row["title"],
+                level=row["level"],
+                pos=row["pos"],
+                olp=olp,
+                properties=properties,
+                tags=tags,
+                aliases=aliases,
+                refs=refs,
+            )
+        except ParseError as e:
+            log.warning(
+                "failed_to_parse_node",
+                node_id=row["id"],
+                error=str(e),
+            )
+            return None
 
     def get_links(self) -> Iterator[OrgRoamLink]:
         """
@@ -323,14 +374,14 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Convert properties from JSON string to dict
+            # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
                 try:
-                    import json
-
-                    properties = json.loads(row["properties"])
-                except (json.JSONDecodeError, TypeError):
+                    expressions = parse_elisp(row["properties"])
+                    if expressions:
+                        properties = parse_elisp_plist_to_dict(expressions[0])
+                except ParseError:
                     log.warning(
                         "failed_to_parse_link_properties",
                         source=row["source"],
@@ -366,14 +417,14 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Convert properties from JSON string to dict
+            # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
                 try:
-                    import json
-
-                    properties = json.loads(row["properties"])
-                except (json.JSONDecodeError, TypeError):
+                    expressions = parse_elisp(row["properties"])
+                    if expressions:
+                        properties = parse_elisp_plist_to_dict(expressions[0])
+                except ParseError:
                     log.warning(
                         "failed_to_parse_link_properties",
                         source=row["source"],
@@ -409,14 +460,14 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Convert properties from JSON string to dict
+            # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
                 try:
-                    import json
-
-                    properties = json.loads(row["properties"])
-                except (json.JSONDecodeError, TypeError):
+                    expressions = parse_elisp(row["properties"])
+                    if expressions:
+                        properties = parse_elisp_plist_to_dict(expressions[0])
+                except ParseError:
                     log.warning(
                         "failed_to_parse_link_properties",
                         source=row["source"],
@@ -441,6 +492,11 @@ class OrgRoamDatabase:
         Returns:
             Iterator of OrgRoamNode objects
         """
+        # We need to convert the file_path to an Elisp string for comparison
+        # This would ideally be done with proper parameter binding, but SQLite
+        # doesn't directly support binding to LIKE clauses with wildcards
+        elisp_file_path = f'"{str(file_path)}"'
+
         cursor = self.conn.execute(
             """
             SELECT n.id, n.file, n.title, n.level, n.pos, n.properties, n.olp
@@ -448,65 +504,66 @@ class OrgRoamDatabase:
             WHERE n.file = ?
             ORDER BY n.pos
             """,
-            (str(file_path),),
+            (elisp_file_path,),
         )
 
         for row in cursor:
-            # Get node tags
-            tags_cursor = self.conn.execute(
-                """
-                SELECT tag
-                FROM tags
-                WHERE node_id = ?
-                """,
-                (row["id"],),
-            )
-            tags = [tag_row["tag"] for tag_row in tags_cursor]
+            try:
+                # Get node tags
+                tags_cursor = self.conn.execute(
+                    """
+                    SELECT tag
+                    FROM tags
+                    WHERE node_id = ?
+                    """,
+                    (row["id"],),
+                )
+                tags = [tag_row["tag"] for tag_row in tags_cursor]
 
-            # Get node aliases
-            aliases = self._get_node_aliases(row["id"])
+                # Get node aliases
+                aliases = self._get_node_aliases(row["id"])
 
-            # Get node references
-            refs = self._get_node_refs(row["id"])
+                # Get node references
+                refs = self._get_node_refs(row["id"])
 
-            # Convert properties from JSON string to dict
-            properties = {}
-            if row["properties"]:
-                try:
-                    import json
+                # Convert properties from Elisp to dict
+                properties = {}
+                if row["properties"]:
+                    try:
+                        expressions = parse_elisp(row["properties"])
+                        if expressions:
+                            properties = parse_elisp_plist_to_dict(expressions[0])
+                    except ParseError:
+                        log.warning(
+                            "failed_to_parse_properties",
+                            node_id=row["id"],
+                            properties=row["properties"],
+                        )
 
-                    properties = json.loads(row["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    log.warning(
-                        "failed_to_parse_properties",
-                        node_id=row["id"],
-                        properties=row["properties"],
-                    )
+                # Convert file path from Elisp string
+                parsed_file_path = parse_elisp_path(parse_elisp(row["file"])[0])
 
-            # Convert olp from JSON array to list of strings
-            olp = []
-            if row["olp"]:
-                try:
-                    import json
+                # Convert olp from Elisp array to list of strings
+                olp = parse_olp(row["olp"]) if row["olp"] else []
 
-                    olp = json.loads(row["olp"])
-                except (json.JSONDecodeError, TypeError):
-                    log.warning(
-                        "failed_to_parse_olp", node_id=row["id"], olp=row["olp"]
-                    )
-
-            yield OrgRoamNode(
-                id=row["id"],
-                file_path=Path(row["file"].strip('"')),
-                title=row["title"],
-                level=row["level"],
-                pos=row["pos"],
-                olp=olp,
-                properties=properties,
-                tags=tags,
-                aliases=aliases,
-                refs=refs,
-            )
+                yield OrgRoamNode(
+                    id=row["id"],
+                    file_path=parsed_file_path,
+                    title=row["title"],
+                    level=row["level"],
+                    pos=row["pos"],
+                    olp=olp,
+                    properties=properties,
+                    tags=tags,
+                    aliases=aliases,
+                    refs=refs,
+                )
+            except ParseError as e:
+                log.warning(
+                    "failed_to_parse_node",
+                    node_id=row["id"],
+                    error=str(e),
+                )
 
     def create_id_to_filename_map(self) -> dict[str, Path]:
         """
@@ -526,7 +583,16 @@ class OrgRoamDatabase:
 
         id_to_file: dict[str, Path] = {}
         for row in cursor:
-            id_to_file[row["id"]] = Path(row["file"].strip('"'))
+            try:
+                # Parse file path as Elisp string
+                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+                id_to_file[row["id"]] = file_path
+            except ParseError:
+                log.warning(
+                    "failed_to_parse_file_path_for_id",
+                    node_id=row["id"],
+                    file=row["file"],
+                )
 
         return id_to_file
 
@@ -553,3 +619,31 @@ class OrgRoamDatabase:
             nodes.sort(key=lambda n: n.pos)
 
         return file_to_nodes
+
+
+def parse_olp(data: str) -> list[str]:
+    """
+    Convert olp from Elisp string to list of strings.
+
+    Args:
+        data: Elisp string representation of an olp
+
+    Returns:
+        List of strings from the olp
+
+    Raises:
+        ParseError: If parsing fails
+    """
+    try:
+        expressions = parse_elisp(data)
+        if not expressions:
+            return []
+
+        expr = expressions[0]
+        objects = parse_elisp_list(expr)
+        olp = [o for o in objects if isinstance(o, str)]
+        if len(olp) < len(objects):
+            raise TypeError(f"Found unexpected non-string in olp: {objects}")
+        return olp
+    except (ParseError, TypeError, SyntaxError) as e:
+        raise ParseError(f"Failed to parse olp: {e}") from e
