@@ -40,6 +40,36 @@ class ElispParseError(Exception):
     tokens: list[Token]
     position: int
 
+    def __str__(self) -> str:
+        """Format the error message with context from tokens and position."""
+        result = [self.message]
+
+        if self.tokens:
+            # Reconstruct the string being parsed
+            source = ""
+            if len(self.tokens) > 0:
+                # Sort tokens by position to ensure correct order
+                sorted_tokens = sorted(self.tokens, key=lambda t: t.position)
+
+                # Get the original source from token positions and values
+                last_pos = 0
+                for token in sorted_tokens:
+                    # Add any spaces or characters between tokens
+                    if token.position > last_pos:
+                        source += " " * (token.position - last_pos)
+
+                    source += token.value
+                    last_pos = token.position + len(token.value)
+
+            result.append(f"\nInput: {source}")
+
+            # Create a pointer to the position of the error
+            if self.position is not None:
+                pointer = " " * (len("Input: ") + self.position) + "^"
+                result.append(pointer)
+
+        return "\n".join(result)
+
 
 def tokenize(source: str) -> Iterator[Token]:
     """
