@@ -32,6 +32,15 @@ class Token:
     position: int
 
 
+@dataclass
+class ElispParseError(Exception):
+    """Custom exception for Elisp parsing errors that includes token information."""
+
+    message: str
+    tokens: list[Token]
+    position: int
+
+
 def tokenize(source: str) -> Iterator[Token]:
     """
     Tokenize an Elisp expression string.
@@ -149,7 +158,11 @@ class Parser:
         token = self.advance()
 
         if token is None:
-            raise SyntaxError("Unexpected end of input")
+            raise ElispParseError(
+                message="Unexpected end of input",
+                tokens=self.tokens,
+                position=self.current,
+            )
 
         if token.type == TokenType.LEFT_PAREN:
             return self._parse_list()
@@ -165,7 +178,11 @@ class Parser:
             # Remove quotes and handle escape sequences
             return StringExpr(token.value[1:-1].replace('\\"', '"'))
         else:
-            raise SyntaxError(f"Unexpected token: {token}")
+            raise ElispParseError(
+                message=f"Unexpected token: {token}",
+                tokens=self.tokens,
+                position=self.current,
+            )
 
     def _parse_list(self) -> Expression:
         """Parse a list expression."""
@@ -175,7 +192,9 @@ class Parser:
             token = self.peek()
 
             if token is None:
-                raise SyntaxError("Unclosed list")
+                raise ElispParseError(
+                    message="Unclosed list", tokens=self.tokens, position=self.current
+                )
 
             if token.type == TokenType.RIGHT_PAREN:
                 self.advance()
@@ -185,11 +204,19 @@ class Parser:
                 self.advance()
                 # Handle dotted pair (improper list)
                 if len(elements) != 1:
-                    raise SyntaxError("Invalid dotted pair")
+                    raise ElispParseError(
+                        message="Invalid dotted pair",
+                        tokens=self.tokens,
+                        position=self.current,
+                    )
                 cdr = self.parse_expression()
                 token = self.peek()
                 if token is None or token.type != TokenType.RIGHT_PAREN:
-                    raise SyntaxError("Expected ) after dotted pair")
+                    raise ElispParseError(
+                        message="Expected ) after dotted pair",
+                        tokens=self.tokens,
+                        position=self.current,
+                    )
                 self.advance()
                 return DottedPairExpr(elements[0], cdr)
 

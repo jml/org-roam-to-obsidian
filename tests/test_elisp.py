@@ -4,6 +4,7 @@ import pytest
 
 from org_roam_to_obsidian.elisp import (
     DottedPairExpr,
+    ElispParseError,
     ListExpr,
     NumberExpr,
     QuotedExpr,
@@ -113,11 +114,11 @@ def test_parse_elisp(input_str, expected):
 @pytest.mark.parametrize(
     "input_str,error",
     [
-        ("(", SyntaxError),  # Unclosed list
-        (")", SyntaxError),  # Unexpected right paren
-        ("(a . b . c)", SyntaxError),  # Invalid dotted pair
-        ("(a . )", SyntaxError),  # Invalid dotted pair
-        ("(a b . c d)", SyntaxError),  # Expected ) after dotted pair
+        ("(", ElispParseError),  # Unclosed list
+        (")", ElispParseError),  # Unexpected right paren
+        ("(a . b . c)", ElispParseError),  # Invalid dotted pair
+        ("(a . )", ElispParseError),  # Invalid dotted pair
+        ("(a b . c d)", ElispParseError),  # Expected ) after dotted pair
     ],
 )
 def test_parse_elisp_errors(input_str, error):

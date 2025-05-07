@@ -10,6 +10,7 @@ from typing import Dict, List, Tuple, cast
 
 from org_roam_to_obsidian.elisp import (
     DottedPairExpr,
+    ElispParseError,
     Expression,
     ListExpr,
     NumberExpr,
@@ -240,5 +241,5 @@ def parse_and_convert_elisp(source: str) -> object:
         if not expressions:
             raise ParseError("No expressions found in input")
         return elisp_expr_to_python(expressions[0])
-    except (SyntaxError, ValueError) as e:
+    except (ElispParseError, ValueError) as e:
         raise ParseError(f"Failed to parse Elisp: {e}") from e
