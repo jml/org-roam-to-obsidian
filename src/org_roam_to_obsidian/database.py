@@ -222,6 +222,7 @@ class OrgRoamDatabase:
                     expressions = parse_elisp(title)
                     if expressions:
                         from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+
                         title = parse_elisp_string(expressions[0])
                 except ParseError:
                     log.warning(
@@ -358,6 +359,7 @@ class OrgRoamDatabase:
                 expressions = parse_elisp(title)
                 if expressions:
                     from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+
                     title = parse_elisp_string(expressions[0])
             except ParseError:
                 log.warning(
@@ -580,6 +582,7 @@ class OrgRoamDatabase:
                     expressions = parse_elisp(title)
                     if expressions:
                         from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+
                         title = parse_elisp_string(expressions[0])
                 except ParseError:
                     log.warning(
