@@ -777,7 +777,6 @@ class TestOrgRoamConverter:
         frontmatter_data = converter._generate_frontmatter_data(node, config.conversion)
 
         # Verify frontmatter contents
-        assert frontmatter_data["title"] == "Test Node"
         assert frontmatter_data["tags"] == ["tag1", "tag2"]
         assert frontmatter_data["aliases"] == ["alias1", "alias2"]
 
@@ -825,9 +824,7 @@ class TestOrgRoamConverter:
         frontmatter_data = converter._generate_frontmatter_data(node, config.conversion)
 
         # Verify frontmatter contents
-        assert frontmatter_data["title"] == "Test Node"
-        assert "tags" not in frontmatter_data  # No tags in the node
-        assert "aliases" not in frontmatter_data  # No aliases in the node
+        assert frontmatter_data == {}
 
     def test_format_frontmatter_yaml(self, temp_source, temp_dir):
         """Format frontmatter data as YAML."""

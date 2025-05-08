@@ -464,9 +464,7 @@ class OrgRoamConverter:
             Dictionary containing the frontmatter data
         """
         # Extract metadata from node
-        frontmatter_data: dict[str, object] = {
-            "title": node.title,
-        }
+        frontmatter_data: dict[str, object] = {}
 
         # Add aliases if available
         if node.aliases:
