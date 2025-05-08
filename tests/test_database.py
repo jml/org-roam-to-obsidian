@@ -113,7 +113,7 @@ def sample_db_path():
                 (
                     "node1",
                     '"/path/to/file1.org"',  # Proper Elisp string format
-                    "Node 1",
+                    '"Node 1"',  # Properly quoted string
                     1,
                     100,
                     '(:CREATED "20220101")',  # Proper Elisp plist format
@@ -122,7 +122,7 @@ def sample_db_path():
                 (
                     "node2",
                     '"/path/to/file1.org"',  # Proper Elisp string format
-                    "Node 2",
+                    '"Node 2"',  # Properly quoted string
                     2,
                     200,
                     '(:CREATED "20220102")',  # Proper Elisp plist format
@@ -131,7 +131,7 @@ def sample_db_path():
                 (
                     "node3",
                     '"/path/to/file2.org"',  # Proper Elisp string format
-                    "Node 3",
+                    '"Node 3"',  # Properly quoted string
                     1,
                     100,
                     '(:CREATED "20220103")',  # Proper Elisp plist format
@@ -140,7 +140,7 @@ def sample_db_path():
                 (
                     "node4",
                     '"/path/to/quoted_file.org"',  # Already in correct format
-                    "Node 4",
+                    '"Node 4"',  # Properly quoted string
                     1,
                     100,
                     '(:CREATED "20220104")',  # Proper Elisp plist format

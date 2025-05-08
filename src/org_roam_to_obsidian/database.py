@@ -59,16 +59,9 @@ class OrgRoamNode:
 
         # Parse title as Elisp string
         title = row["title"]
-        try:
-            expressions = parse_elisp(title)
-            if expressions:
-                title = parse_elisp_string(expressions[0])
-        except ParseError:
-            log.warning(
-                "failed_to_parse_title",
-                node_id=row["id"],
-                title=title,
-            )
+        expressions = parse_elisp(title)
+        if expressions:
+            title = parse_elisp_string(expressions[0])
 
         # Parse olp
         olp = parse_olp(row["olp"]) if row["olp"] else []
@@ -76,16 +69,9 @@ class OrgRoamNode:
         # Get properties
         properties = {}
         if row["properties"]:
-            try:
-                expressions = parse_elisp(row["properties"])
-                if expressions:
-                    properties = parse_elisp_plist_to_dict(expressions[0])
-            except ParseError:
-                log.warning(
-                    "failed_to_parse_properties",
-                    node_id=row["id"],
-                    properties=row["properties"],
-                )
+            expressions = parse_elisp(row["properties"])
+            if expressions:
+                properties = parse_elisp_plist_to_dict(expressions[0])
 
         return cls(
             id=row["id"],
@@ -181,48 +167,27 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            try:
-                # Parse file path as Elisp string
-                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+            # Parse file path as Elisp string
+            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
 
-                # Parse time values
-                atime_tuple = (0, 0, 0, 0)
-                mtime_tuple = (0, 0, 0, 0)
+            # Parse time values
+            atime_tuple = (0, 0, 0, 0)
+            mtime_tuple = (0, 0, 0, 0)
 
-                try:
-                    if row["atime"]:
-                        atime_expr = parse_elisp(row["atime"])[0]
-                        atime_tuple = parse_elisp_time(atime_expr)
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_atime",
-                        file=str(file_path),
-                        atime=row["atime"],
-                    )
+            if row["atime"]:
+                atime_expr = parse_elisp(row["atime"])[0]
+                atime_tuple = parse_elisp_time(atime_expr)
 
-                try:
-                    if row["mtime"]:
-                        mtime_expr = parse_elisp(row["mtime"])[0]
-                        mtime_tuple = parse_elisp_time(mtime_expr)
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_mtime",
-                        file=str(file_path),
-                        mtime=row["mtime"],
-                    )
+            if row["mtime"]:
+                mtime_expr = parse_elisp(row["mtime"])[0]
+                mtime_tuple = parse_elisp_time(mtime_expr)
 
-                yield OrgRoamFile(
-                    file_path=file_path,
-                    hash=row["hash"],
-                    atime=atime_tuple,
-                    mtime=mtime_tuple,
-                )
-            except ParseError as e:
-                log.warning(
-                    "failed_to_parse_file_path",
-                    path=row["file"],
-                    error=str(e),
-                )
+            yield OrgRoamFile(
+                file_path=file_path,
+                hash=row["hash"],
+                atime=atime_tuple,
+                mtime=mtime_tuple,
+            )
 
     def get_all_nodes(self) -> Iterator[OrgRoamNode]:
         """
@@ -244,25 +209,18 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            try:
-                # Get node aliases
-                aliases = self._get_node_aliases(row["id"])
+            # Get node aliases
+            aliases = self._get_node_aliases(row["id"])
 
-                # Get node references
-                refs = self._get_node_refs(row["id"])
+            # Get node references
+            refs = self._get_node_refs(row["id"])
 
-                # Create a row dict with all data
-                row_dict = dict(row)
-                row_dict["aliases"] = aliases
-                row_dict["refs"] = refs
+            # Create a row dict with all data
+            row_dict = dict(row)
+            row_dict["aliases"] = aliases
+            row_dict["refs"] = refs
 
-                yield OrgRoamNode.from_row(row_dict)
-            except ParseError as e:
-                log.warning(
-                    "failed_to_parse_node",
-                    node_id=row["id"],
-                    error=str(e),
-                )
+            yield OrgRoamNode.from_row(row_dict)
 
     def _get_node_aliases(self, node_id: str) -> list[str]:
         """
@@ -329,38 +287,30 @@ class OrgRoamDatabase:
         if not row:
             return None
 
-        try:
-            # Get node tags
-            tags_cursor = self.conn.execute(
-                """
-                SELECT tag
-                FROM tags
-                WHERE node_id = ?
-                """,
-                (node_id,),
-            )
-            tags = [tag_row["tag"] for tag_row in tags_cursor]
+        # Get node tags
+        tags_cursor = self.conn.execute(
+            """
+            SELECT tag
+            FROM tags
+            WHERE node_id = ?
+            """,
+            (node_id,),
+        )
+        tags = [tag_row["tag"] for tag_row in tags_cursor]
 
-            # Get node aliases
-            aliases = self._get_node_aliases(node_id)
+        # Get node aliases
+        aliases = self._get_node_aliases(node_id)
 
-            # Get node references
-            refs = self._get_node_refs(node_id)
+        # Get node references
+        refs = self._get_node_refs(node_id)
 
-            # Create a row dict with all data
-            row_dict = dict(row)
-            row_dict["tags"] = ",".join(tags) if tags else ""
-            row_dict["aliases"] = aliases
-            row_dict["refs"] = refs
+        # Create a row dict with all data
+        row_dict = dict(row)
+        row_dict["tags"] = ",".join(tags) if tags else ""
+        row_dict["aliases"] = aliases
+        row_dict["refs"] = refs
 
-            return OrgRoamNode.from_row(row_dict)
-        except ParseError as e:
-            log.warning(
-                "failed_to_parse_node",
-                node_id=row["id"],
-                error=str(e),
-            )
-            return None
+        return OrgRoamNode.from_row(row_dict)
 
     def get_links(self) -> Iterator[OrgRoamLink]:
         """
@@ -381,17 +331,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                try:
-                    expressions = parse_elisp(row["properties"])
-                    if expressions:
-                        properties = parse_elisp_plist_to_dict(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_link_properties",
-                        source=row["source"],
-                        dest=row["dest"],
-                        properties=row["properties"],
-                    )
+                expressions = parse_elisp(row["properties"])
+                if expressions:
+                    properties = parse_elisp_plist_to_dict(expressions[0])
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -424,17 +366,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                try:
-                    expressions = parse_elisp(row["properties"])
-                    if expressions:
-                        properties = parse_elisp_plist_to_dict(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_link_properties",
-                        source=row["source"],
-                        dest=row["dest"],
-                        properties=row["properties"],
-                    )
+                expressions = parse_elisp(row["properties"])
+                if expressions:
+                    properties = parse_elisp_plist_to_dict(expressions[0])
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -467,17 +401,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                try:
-                    expressions = parse_elisp(row["properties"])
-                    if expressions:
-                        properties = parse_elisp_plist_to_dict(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_link_properties",
-                        source=row["source"],
-                        dest=row["dest"],
-                        properties=row["properties"],
-                    )
+                expressions = parse_elisp(row["properties"])
+                if expressions:
+                    properties = parse_elisp_plist_to_dict(expressions[0])
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -512,37 +438,30 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            try:
-                # Get node tags
-                tags_cursor = self.conn.execute(
-                    """
-                    SELECT tag
-                    FROM tags
-                    WHERE node_id = ?
-                    """,
-                    (row["id"],),
-                )
-                tags = [tag_row["tag"] for tag_row in tags_cursor]
+            # Get node tags
+            tags_cursor = self.conn.execute(
+                """
+                SELECT tag
+                FROM tags
+                WHERE node_id = ?
+                """,
+                (row["id"],),
+            )
+            tags = [tag_row["tag"] for tag_row in tags_cursor]
 
-                # Get node aliases
-                aliases = self._get_node_aliases(row["id"])
+            # Get node aliases
+            aliases = self._get_node_aliases(row["id"])
 
-                # Get node references
-                refs = self._get_node_refs(row["id"])
+            # Get node references
+            refs = self._get_node_refs(row["id"])
 
-                # Create a row dict with all data
-                row_dict = dict(row)
-                row_dict["tags"] = ",".join(tags) if tags else ""
-                row_dict["aliases"] = aliases
-                row_dict["refs"] = refs
+            # Create a row dict with all data
+            row_dict = dict(row)
+            row_dict["tags"] = ",".join(tags) if tags else ""
+            row_dict["aliases"] = aliases
+            row_dict["refs"] = refs
 
-                yield OrgRoamNode.from_row(row_dict)
-            except ParseError as e:
-                log.warning(
-                    "failed_to_parse_node",
-                    node_id=row["id"],
-                    error=str(e),
-                )
+            yield OrgRoamNode.from_row(row_dict)
 
     def create_id_to_filename_map(self) -> dict[str, Path]:
         """
@@ -562,16 +481,9 @@ class OrgRoamDatabase:
 
         id_to_file: dict[str, Path] = {}
         for row in cursor:
-            try:
-                # Parse file path as Elisp string
-                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
-                id_to_file[row["id"]] = file_path
-            except ParseError:
-                log.warning(
-                    "failed_to_parse_file_path_for_id",
-                    node_id=row["id"],
-                    file=row["file"],
-                )
+            # Parse file path as Elisp string
+            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+            id_to_file[row["id"]] = file_path
 
         return id_to_file
 
