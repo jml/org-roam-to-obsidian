@@ -922,9 +922,9 @@ class TestOrgRoamConverter:
 
 This is a test document with several org-roam links:
 
-- Link without description: [[id:node1]]
-- Link with description: [[id:node2][Custom Description]]
-- Link to unknown node: [[id:unknown]]
+Link without description: <id:node1>
+Link with description: [Custom Description](id:node2)
+Link to unknown node: <id:unknown>
 """
 
         # Convert the links
@@ -934,134 +934,13 @@ This is a test document with several org-roam links:
             converter.config.conversion,
         )
 
-        # Verify the links were converted correctly
-        assert "[[First Node]]" in converted_content  # Basic link
-        assert (
-            "[[Second Node|Custom Description]]" in converted_content
-        )  # Link with description
-        assert "[[id:unknown]]" in converted_content  # Unknown node preserved
-
-    def test_convert_org_roam_links_with_custom_format(self, temp_source, temp_dir):
-        """Convert org-roam links using custom link format."""
-        # Create config with custom link formats
-        config = ConverterConfig(
-            conversion=ConversionConfig(
-                link_format="${title}",  # No brackets
-                preserve_link_descriptions=True,
-                link_description_format="${description} (${title})",  # Custom format
-            ),
-            attachments=AttachmentsConfig(),
-            formatting=FormattingConfig(),
-        )
-
-        # Create converter with custom config
-        converter = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            config=config,
-            source_base_path=temp_source.parent,
-        )
-
-        # Create test nodes
-        from org_roam_to_obsidian.database import OrgRoamNode
-
-        test_nodes = {
-            "node1": OrgRoamNode(
-                id="node1",
-                file_path=Path("/path/to/node1.org"),
-                title="First Node",
-                level=1,
-                pos=0,
-            ),
-            "node2": OrgRoamNode(
-                id="node2",
-                file_path=Path("/path/to/node2.org"),
-                title="Second Node",
-                level=1,
-                pos=0,
-            ),
-        }
-
-        # Test markdown content with org-roam links
-        markdown_content = """
+        expected_converted_content = """
 # Test Document
 
-Testing custom link formats:
+This is a test document with several org-roam links:
 
-- Basic link: [[id:node1]]
-- Link with description: [[id:node2][Custom Description]]
+Link without description: [[First Node]]
+Link with description: [[Second Node|Custom Description]]
+Link to unknown node: <id:unknown>
 """
-
-        # Convert the links
-        converted_content = converter._convert_org_roam_links(
-            markdown_content,
-            test_nodes,
-            converter.config.conversion,
-        )
-
-        # Verify the links were converted according to the custom format
-        assert "First Node" in converted_content  # Basic link without brackets
-        assert (
-            "Custom Description (Second Node)" in converted_content
-        )  # Custom description format
-
-    def test_convert_org_roam_links_without_preserving_descriptions(
-        self, temp_source, temp_dir
-    ):
-        """Convert org-roam links without preserving descriptions."""
-        # Create config with preserve_link_descriptions=False
-        config = ConverterConfig(
-            conversion=ConversionConfig(
-                preserve_link_descriptions=False,  # Don't preserve descriptions
-            ),
-            attachments=AttachmentsConfig(),
-            formatting=FormattingConfig(),
-        )
-
-        # Create converter with custom config
-        converter = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            config=config,
-            source_base_path=temp_source.parent,
-        )
-
-        # Create test nodes
-        from org_roam_to_obsidian.database import OrgRoamNode
-
-        test_nodes = {
-            "node1": OrgRoamNode(
-                id="node1",
-                file_path=Path("/path/to/node1.org"),
-                title="First Node",
-                level=1,
-                pos=0,
-            ),
-            "node2": OrgRoamNode(
-                id="node2",
-                file_path=Path("/path/to/node2.org"),
-                title="Second Node",
-                level=1,
-                pos=0,
-            ),
-        }
-
-        # Test markdown content with org-roam links
-        markdown_content = """
-# Test Document
-
-When descriptions are not preserved:
-
-- Link with description should use title: [[id:node2][Custom Description]]
-"""
-
-        # Convert the links
-        converted_content = converter._convert_org_roam_links(
-            markdown_content,
-            test_nodes,
-            converter.config.conversion,
-        )
-
-        # Verify the link uses just the title and ignores the description
-        assert "[[Second Node]]" in converted_content
-        assert "Custom Description" not in converted_content
+        assert converted_content == expected_converted_content

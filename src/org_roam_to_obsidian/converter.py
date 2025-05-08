@@ -150,13 +150,24 @@ class OrgRoamConverter:
         Returns:
             Markdown content with converted links
         """
-        # Pattern for org-roam links: [[id:XXXXXXXX-XXXX][Description]] or [[id:XXXXXXXX-XXXX]]
-        # First group is the ID, second group (optional) is the description
-        org_roam_link_pattern = re.compile(r"\[\[id:([^\]]+)\](?:\[([^\]]*)\])?\]")
+        # Pattern for markdown links with org-roam IDs: <id:XXXX> or [Description](id:XXXX)
+        # Matches both formats: angle bracket format <id:XXX> and markdown link format [Description](id:XXX)
+        org_roam_link_pattern = re.compile(
+            r"(?:<id:([^>]+)>|\[([^\]]+)\]\(id:([^\)]+)\))"
+        )
 
         def replacement(match: re.Match[str]) -> str:
-            node_id = match.group(1)
-            description = match.group(2) if match.group(2) else None
+            # Group 1: ID from <id:XXX> format (no description)
+            # Group 2: Description from [Description](id:XXX) format
+            # Group 3: ID from [Description](id:XXX) format
+            if match.group(1) is not None:
+                # First pattern matched: <id:XXX>
+                node_id = match.group(1)
+                description = None
+            else:
+                # Second pattern matched: [Description](id:XXX)
+                node_id = match.group(3)
+                description = match.group(2)
 
             # If we can't find the node ID, keep the original link
             if node_id not in id_to_node:
