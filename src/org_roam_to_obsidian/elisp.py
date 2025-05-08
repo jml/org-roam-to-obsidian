@@ -323,6 +323,43 @@ def parse_elisp(source: str) -> List[Expression]:
     return parser.parse_all()
 
 
+def parse_single_elisp(source: str) -> Expression:
+    """
+    Parse exactly one Elisp expression from source.
+
+    Args:
+        source: The Elisp source code containing a single expression
+
+    Returns:
+        A single Expression object
+
+    Raises:
+        ElispParseError: If there are zero or multiple expressions
+    """
+    tokens = list(tokenize(source))
+    parser = Parser(tokens)
+
+    # Parse the first expression
+    if not tokens:
+        raise ElispParseError(
+            message="No expressions found in input",
+            tokens=tokens,
+            position=0,
+        )
+
+    expression = parser.parse_expression()
+
+    # Check if there are any remaining tokens
+    if parser.current < len(tokens):
+        raise ElispParseError(
+            message="Multiple expressions found when only one was expected",
+            tokens=tokens,
+            position=parser.current,
+        )
+
+    return expression
+
+
 # Pretty printer utilities
 def pretty_print(expr: Expression, indent: int = 0) -> str:
     """Pretty print an Elisp expression."""

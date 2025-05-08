@@ -11,6 +11,7 @@ from org_roam_to_obsidian.elisp import (
     StringExpr,
     SymbolExpr,
     parse_elisp,
+    parse_single_elisp,
 )
 
 
@@ -134,3 +135,63 @@ def test_parse_elisp_errors(input_str, error):
     """Test parser error handling with invalid input."""
     with pytest.raises(error):
         parse_elisp(input_str)
+
+
+@pytest.mark.parametrize(
+    "input_str,expected",
+    [
+        # Symbol expressions
+        ("symbol", SymbolExpr("symbol")),
+        ("nil", SymbolExpr("nil")),
+        # Number expressions
+        ("42", NumberExpr(42)),
+        ("-2.5", NumberExpr(-2.5)),
+        # String expressions
+        ('"hello"', StringExpr("hello")),
+        ('"escaped \\"quotes\\""', StringExpr('escaped "quotes"')),
+        # Empty lists
+        ("()", ListExpr([])),
+        # List expressions
+        ("(a b c)", ListExpr([SymbolExpr("a"), SymbolExpr("b"), SymbolExpr("c")])),
+        # Quoted expressions
+        ("'symbol", QuotedExpr(SymbolExpr("symbol"))),
+        # Nested expressions
+        (
+            "(outer (inner1 inner2) outer2)",
+            ListExpr(
+                [
+                    SymbolExpr("outer"),
+                    ListExpr([SymbolExpr("inner1"), SymbolExpr("inner2")]),
+                    SymbolExpr("outer2"),
+                ]
+            ),
+        ),
+        # Dotted pair expressions
+        ("(a . b)", DottedPairExpr(SymbolExpr("a"), SymbolExpr("b"))),
+        # Comments
+        (";; This is a comment\nsymbol", SymbolExpr("symbol")),
+        # Property lists (handled as strings)
+        ('#(":tag:" 1 7 (inherited t))', StringExpr(":tag:")),
+    ],
+)
+def test_parse_single_elisp(input_str, expected):
+    """Parse a single elisp expression and compare with expected result."""
+    result = parse_single_elisp(input_str)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "input_str,error_message",
+    [
+        ("symbol1 symbol2", "Multiple expressions found when only one was expected"),
+        ("", "No expressions found in input"),
+        ("(", "Unclosed list"),
+        (")", "Unexpected token"),
+        ("(a . b . c)", "Expected ) after dotted pair"),
+    ],
+)
+def test_parse_single_elisp_errors(input_str, error_message):
+    """Test single expression parser error handling with invalid input."""
+    with pytest.raises(ElispParseError) as excinfo:
+        parse_single_elisp(input_str)
+    assert error_message in str(excinfo.value)
