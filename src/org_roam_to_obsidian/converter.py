@@ -233,6 +233,7 @@ class OrgRoamConverter:
             src_file,
             "gfm",  # GitHub-flavored Markdown
             format="org",
+            extra_args=["--wrap=preserve"],
         )
 
         log.info("converted_file", source=str(src_file))
