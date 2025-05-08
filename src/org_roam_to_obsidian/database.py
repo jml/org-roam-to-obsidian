@@ -41,6 +41,65 @@ class OrgRoamNode:
     aliases: list[str] = field(default_factory=list)
     refs: list[str] = field(default_factory=list)
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> "OrgRoamNode":
+        """
+        Create an OrgRoamNode from a database row.
+
+        Args:
+            row: A dict-like object with column names as keys
+
+        Returns:
+            An OrgRoamNode instance
+        """
+        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+
+        # Parse file path from Elisp string
+        file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+
+        # Parse title as Elisp string
+        title = row["title"]
+        try:
+            expressions = parse_elisp(title)
+            if expressions:
+                title = parse_elisp_string(expressions[0])
+        except ParseError:
+            log.warning(
+                "failed_to_parse_title",
+                node_id=row["id"],
+                title=title,
+            )
+
+        # Parse olp
+        olp = parse_olp(row["olp"]) if row["olp"] else []
+
+        # Get properties
+        properties = {}
+        if row["properties"]:
+            try:
+                expressions = parse_elisp(row["properties"])
+                if expressions:
+                    properties = parse_elisp_plist_to_dict(expressions[0])
+            except ParseError:
+                log.warning(
+                    "failed_to_parse_properties",
+                    node_id=row["id"],
+                    properties=row["properties"],
+                )
+
+        return cls(
+            id=row["id"],
+            file_path=file_path,
+            title=title,
+            level=row["level"],
+            pos=row["pos"],
+            olp=olp,
+            properties=properties,
+            tags=row.get("tags", "").split(",") if row.get("tags") else [],
+            aliases=row.get("aliases", []),
+            refs=row.get("refs", []),
+        )
+
 
 @dataclass(frozen=True)
 class OrgRoamLink:
@@ -186,63 +245,18 @@ class OrgRoamDatabase:
 
         for row in cursor:
             try:
-                # Convert properties from Elisp string to dict
-                properties = {}
-                if row["properties"]:
-                    try:
-                        expressions = parse_elisp(row["properties"])
-                        if expressions:
-                            properties = parse_elisp_plist_to_dict(expressions[0])
-                    except ParseError:
-                        log.warning(
-                            "failed_to_parse_properties",
-                            node_id=row["id"],
-                            properties=row["properties"],
-                        )
-
-                # Convert tags from comma-separated string to list
-                tags = []
-                if row["tags"]:
-                    tags = row["tags"].split(",")
-
                 # Get node aliases
                 aliases = self._get_node_aliases(row["id"])
 
                 # Get node references
                 refs = self._get_node_refs(row["id"])
 
-                # Convert file path from Elisp string
-                file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+                # Create a row dict with all data
+                row_dict = dict(row)
+                row_dict["aliases"] = aliases
+                row_dict["refs"] = refs
 
-                olp = parse_olp(row["olp"]) if row["olp"] else []
-
-                # Parse title as Elisp string
-                title = row["title"]
-                try:
-                    expressions = parse_elisp(title)
-                    if expressions:
-                        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
-
-                        title = parse_elisp_string(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_title",
-                        node_id=row["id"],
-                        title=title,
-                    )
-
-                yield OrgRoamNode(
-                    id=row["id"],
-                    file_path=file_path,
-                    title=title,
-                    level=row["level"],
-                    pos=row["pos"],
-                    olp=olp,
-                    properties=properties,
-                    tags=tags,
-                    aliases=aliases,
-                    refs=refs,
-                )
+                yield OrgRoamNode.from_row(row_dict)
             except ParseError as e:
                 log.warning(
                     "failed_to_parse_node",
@@ -333,53 +347,13 @@ class OrgRoamDatabase:
             # Get node references
             refs = self._get_node_refs(node_id)
 
-            # Convert properties from Elisp to dict
-            properties = {}
-            if row["properties"]:
-                try:
-                    expressions = parse_elisp(row["properties"])
-                    if expressions:
-                        properties = parse_elisp_plist_to_dict(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_properties",
-                        node_id=row["id"],
-                        properties=row["properties"],
-                    )
+            # Create a row dict with all data
+            row_dict = dict(row)
+            row_dict["tags"] = ",".join(tags) if tags else ""
+            row_dict["aliases"] = aliases
+            row_dict["refs"] = refs
 
-            # Convert file path from Elisp string
-            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
-
-            # Convert olp from Elisp array to list of strings
-            olp = parse_olp(row["olp"]) if row["olp"] else []
-
-            # Parse title as Elisp string
-            title = row["title"]
-            try:
-                expressions = parse_elisp(title)
-                if expressions:
-                    from org_roam_to_obsidian.elisp_parser import parse_elisp_string
-
-                    title = parse_elisp_string(expressions[0])
-            except ParseError:
-                log.warning(
-                    "failed_to_parse_title",
-                    node_id=row["id"],
-                    title=title,
-                )
-
-            return OrgRoamNode(
-                id=row["id"],
-                file_path=file_path,
-                title=title,
-                level=row["level"],
-                pos=row["pos"],
-                olp=olp,
-                properties=properties,
-                tags=tags,
-                aliases=aliases,
-                refs=refs,
-            )
+            return OrgRoamNode.from_row(row_dict)
         except ParseError as e:
             log.warning(
                 "failed_to_parse_node",
@@ -556,53 +530,13 @@ class OrgRoamDatabase:
                 # Get node references
                 refs = self._get_node_refs(row["id"])
 
-                # Convert properties from Elisp to dict
-                properties = {}
-                if row["properties"]:
-                    try:
-                        expressions = parse_elisp(row["properties"])
-                        if expressions:
-                            properties = parse_elisp_plist_to_dict(expressions[0])
-                    except ParseError:
-                        log.warning(
-                            "failed_to_parse_properties",
-                            node_id=row["id"],
-                            properties=row["properties"],
-                        )
+                # Create a row dict with all data
+                row_dict = dict(row)
+                row_dict["tags"] = ",".join(tags) if tags else ""
+                row_dict["aliases"] = aliases
+                row_dict["refs"] = refs
 
-                # Convert file path from Elisp string
-                parsed_file_path = parse_elisp_path(parse_elisp(row["file"])[0])
-
-                # Convert olp from Elisp array to list of strings
-                olp = parse_olp(row["olp"]) if row["olp"] else []
-
-                # Parse title as Elisp string
-                title = row["title"]
-                try:
-                    expressions = parse_elisp(title)
-                    if expressions:
-                        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
-
-                        title = parse_elisp_string(expressions[0])
-                except ParseError:
-                    log.warning(
-                        "failed_to_parse_title",
-                        node_id=row["id"],
-                        title=title,
-                    )
-
-                yield OrgRoamNode(
-                    id=row["id"],
-                    file_path=parsed_file_path,
-                    title=title,
-                    level=row["level"],
-                    pos=row["pos"],
-                    olp=olp,
-                    properties=properties,
-                    tags=tags,
-                    aliases=aliases,
-                    refs=refs,
-                )
+                yield OrgRoamNode.from_row(row_dict)
             except ParseError as e:
                 log.warning(
                     "failed_to_parse_node",
