@@ -13,7 +13,7 @@ from typing import Any, Iterator, Tuple
 
 from pydantic.dataclasses import dataclass
 
-from org_roam_to_obsidian.elisp import parse_elisp
+from org_roam_to_obsidian.elisp import parse_single_elisp
 from org_roam_to_obsidian.elisp_parser import (
     ParseError,
     parse_elisp_list,
@@ -55,13 +55,16 @@ class OrgRoamNode:
         from org_roam_to_obsidian.elisp_parser import parse_elisp_string
 
         # Parse file path from Elisp string
-        file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+        expr = parse_single_elisp(row["file"])
+        if expr is None:
+            raise ParseError(f"Failed to parse file path: {row['file']}")
+        file_path = parse_elisp_path(expr)
 
         # Parse title as Elisp string
         title = row["title"]
-        expressions = parse_elisp(title)
-        if expressions:
-            title = parse_elisp_string(expressions[0])
+        expression = parse_single_elisp(title)
+        if expression:
+            title = parse_elisp_string(expression)
 
         # Parse olp
         olp = parse_olp(row["olp"]) if row["olp"] else []
@@ -69,9 +72,9 @@ class OrgRoamNode:
         # Get properties
         properties = {}
         if row["properties"]:
-            expressions = parse_elisp(row["properties"])
-            if expressions:
-                properties = parse_elisp_plist_to_dict(expressions[0])
+            expression = parse_single_elisp(row["properties"])
+            if expression:
+                properties = parse_elisp_plist_to_dict(expression)
 
         return cls(
             id=row["id"],
@@ -168,18 +171,25 @@ class OrgRoamDatabase:
 
         for row in cursor:
             # Parse file path as Elisp string
-            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+            expr = parse_single_elisp(row["file"])
+            if expr is None:
+                raise ParseError(f"Failed to parse file path: {row['file']}")
+            file_path = parse_elisp_path(expr)
 
             # Parse time values
             atime_tuple = (0, 0, 0, 0)
             mtime_tuple = (0, 0, 0, 0)
 
             if row["atime"]:
-                atime_expr = parse_elisp(row["atime"])[0]
+                atime_expr = parse_single_elisp(row["atime"])
+                if atime_expr is None:
+                    raise ParseError(f"Failed to parse atime: {row['atime']}")
                 atime_tuple = parse_elisp_time(atime_expr)
 
             if row["mtime"]:
-                mtime_expr = parse_elisp(row["mtime"])[0]
+                mtime_expr = parse_single_elisp(row["mtime"])
+                if mtime_expr is None:
+                    raise ParseError(f"Failed to parse mtime: {row['mtime']}")
                 mtime_tuple = parse_elisp_time(mtime_expr)
 
             yield OrgRoamFile(
@@ -331,9 +341,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                expressions = parse_elisp(row["properties"])
-                if expressions:
-                    properties = parse_elisp_plist_to_dict(expressions[0])
+                expression = parse_single_elisp(row["properties"])
+                if expression:
+                    properties = parse_elisp_plist_to_dict(expression)
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -366,9 +376,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                expressions = parse_elisp(row["properties"])
-                if expressions:
-                    properties = parse_elisp_plist_to_dict(expressions[0])
+                expression = parse_single_elisp(row["properties"])
+                if expression:
+                    properties = parse_elisp_plist_to_dict(expression)
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -401,9 +411,9 @@ class OrgRoamDatabase:
             # Convert properties from Elisp to dict
             properties = {}
             if row["properties"]:
-                expressions = parse_elisp(row["properties"])
-                if expressions:
-                    properties = parse_elisp_plist_to_dict(expressions[0])
+                expression = parse_single_elisp(row["properties"])
+                if expression:
+                    properties = parse_elisp_plist_to_dict(expression)
 
             yield OrgRoamLink(
                 source_id=row["source"],
@@ -482,7 +492,10 @@ class OrgRoamDatabase:
         id_to_file: dict[str, Path] = {}
         for row in cursor:
             # Parse file path as Elisp string
-            file_path = parse_elisp_path(parse_elisp(row["file"])[0])
+            expr = parse_single_elisp(row["file"])
+            if expr is None:
+                raise ParseError(f"Failed to parse file path: {row['file']}")
+            file_path = parse_elisp_path(expr)
             id_to_file[row["id"]] = file_path
 
         return id_to_file
@@ -526,11 +539,10 @@ def parse_olp(data: str) -> list[str]:
         ParseError: If parsing fails
     """
     try:
-        expressions = parse_elisp(data)
-        if not expressions:
+        expr = parse_single_elisp(data)
+        if not expr:
             return []
 
-        expr = expressions[0]
         objects = parse_elisp_list(expr)
         olp = [o for o in objects if isinstance(o, str)]
         if len(olp) < len(objects):
