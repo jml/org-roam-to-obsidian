@@ -366,6 +366,9 @@ class TestOrgRoamConverter:
             ("Title with / slashes", "Title with - slashes.md"),
             ("Title with \\ backslashes", "Title with - backslashes.md"),
             ("Title with both / and \\ slashes", "Title with both - and - slashes.md"),
+            # In real code, quotes would have been parsed out by database.py
+            ("Title with quotes", "Title with quotes.md"),
+            ("Title with quotes in middle", "Title with quotes in middle.md"),
         ]
 
         for title, expected_filename in special_char_cases:

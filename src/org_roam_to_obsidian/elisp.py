@@ -90,6 +90,7 @@ def tokenize(source: str) -> Iterator[Token]:
         TokenType.RIGHT_PAREN: r"\)",
         TokenType.QUOTE: r"'",
         TokenType.DOT: r"\.",
+        # Handle property list markers (#) as part of symbols
         TokenType.SYMBOL: r"[^\s()'\"]+",
     }
 
@@ -199,6 +200,18 @@ class Parser:
         elif token.type == TokenType.QUOTE:
             return QuotedExpr(self.parse_expression())
         elif token.type == TokenType.SYMBOL:
+            # Check for property list notation: #(...)
+            next_token = self.peek()
+            if (
+                token.value == "#"
+                and next_token is not None
+                and next_token.type == TokenType.LEFT_PAREN
+            ):
+                # Skip the '#' token and parse the property list as a special case
+                self.advance()  # Consume the LEFT_PAREN token
+                # Now parse what's inside the property list
+                prop_list = self._parse_property_list()
+                return prop_list
             return SymbolExpr(token.value)
         elif token.type == TokenType.NUMBER:
             return NumberExpr(
@@ -213,6 +226,41 @@ class Parser:
                 tokens=self.tokens,
                 position=self.current,
             )
+
+    def _parse_property_list(self) -> Expression:
+        """Parse a property list expression #(...) and extract just the string value.
+
+        For property lists like #(":person:" 1 7 (inherited t)), we extract just the string
+        value ":person:" and return it as a StringExpr.
+        """
+        # The first element should be a string expression
+        first_expr = self.parse_expression()
+
+        # Extract the string value (if it's a string)
+        if isinstance(first_expr, StringExpr):
+            string_value = first_expr.value
+        else:
+            # If not a string, just use the original expression
+            string_value = str(first_expr)
+
+        # Now consume the rest of the property list until we hit the closing paren
+        depth = 1  # We've already consumed the opening paren
+        while depth > 0:
+            token = self.advance()
+            if token is None:
+                raise ElispParseError(
+                    message="Unclosed property list",
+                    tokens=self.tokens,
+                    position=self.current,
+                )
+
+            if token.type == TokenType.LEFT_PAREN:
+                depth += 1
+            elif token.type == TokenType.RIGHT_PAREN:
+                depth -= 1
+
+        # Return just the string value as a StringExpr
+        return StringExpr(string_value)
 
     def _parse_list(self) -> Expression:
         """Parse a list expression."""

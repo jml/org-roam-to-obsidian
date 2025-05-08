@@ -216,10 +216,24 @@ class OrgRoamDatabase:
 
                 olp = parse_olp(row["olp"]) if row["olp"] else []
 
+                # Parse title as Elisp string
+                title = row["title"]
+                try:
+                    expressions = parse_elisp(title)
+                    if expressions:
+                        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+                        title = parse_elisp_string(expressions[0])
+                except ParseError:
+                    log.warning(
+                        "failed_to_parse_title",
+                        node_id=row["id"],
+                        title=title,
+                    )
+
                 yield OrgRoamNode(
                     id=row["id"],
                     file_path=file_path,
-                    title=row["title"],
+                    title=title,
                     level=row["level"],
                     pos=row["pos"],
                     olp=olp,
@@ -338,10 +352,24 @@ class OrgRoamDatabase:
             # Convert olp from Elisp array to list of strings
             olp = parse_olp(row["olp"]) if row["olp"] else []
 
+            # Parse title as Elisp string
+            title = row["title"]
+            try:
+                expressions = parse_elisp(title)
+                if expressions:
+                    from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+                    title = parse_elisp_string(expressions[0])
+            except ParseError:
+                log.warning(
+                    "failed_to_parse_title",
+                    node_id=row["id"],
+                    title=title,
+                )
+
             return OrgRoamNode(
                 id=row["id"],
                 file_path=file_path,
-                title=row["title"],
+                title=title,
                 level=row["level"],
                 pos=row["pos"],
                 olp=olp,
@@ -546,10 +574,24 @@ class OrgRoamDatabase:
                 # Convert olp from Elisp array to list of strings
                 olp = parse_olp(row["olp"]) if row["olp"] else []
 
+                # Parse title as Elisp string
+                title = row["title"]
+                try:
+                    expressions = parse_elisp(title)
+                    if expressions:
+                        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+                        title = parse_elisp_string(expressions[0])
+                except ParseError:
+                    log.warning(
+                        "failed_to_parse_title",
+                        node_id=row["id"],
+                        title=title,
+                    )
+
                 yield OrgRoamNode(
                     id=row["id"],
                     file_path=parsed_file_path,
-                    title=row["title"],
+                    title=title,
                     level=row["level"],
                     pos=row["pos"],
                     olp=olp,

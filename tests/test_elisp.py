@@ -103,6 +103,11 @@ from org_roam_to_obsidian.elisp import (
                 ListExpr([SymbolExpr("c"), SymbolExpr("d")]),
             ],
         ),
+        # Property lists (handled as strings)
+        ('(a . #(":tag:" 1 7 (inherited t)))', 
+         [DottedPairExpr(SymbolExpr("a"), StringExpr(":tag:"))]),
+        ('(("ALLTAGS" . #(":person:" 1 7 (inherited t))))',
+         [ListExpr([DottedPairExpr(StringExpr("ALLTAGS"), StringExpr(":person:"))])]),
     ],
 )
 def test_parse_elisp(input_str, expected):
