@@ -184,7 +184,6 @@ def test_parse_single_elisp(input_str, expected):
     "input_str,error_message",
     [
         ("symbol1 symbol2", "Multiple expressions found when only one was expected"),
-        ("", "No expressions found in input"),
         ("(", "Unclosed list"),
         (")", "Unexpected token"),
         ("(a . b . c)", "Expected ) after dotted pair"),
@@ -195,3 +194,11 @@ def test_parse_single_elisp_errors(input_str, error_message):
     with pytest.raises(ElispParseError) as excinfo:
         parse_single_elisp(input_str)
     assert error_message in str(excinfo.value)
+
+
+def test_parse_single_elisp_empty_input():
+    """Test that parse_single_elisp returns None for empty input."""
+    assert parse_single_elisp("") is None
+    assert parse_single_elisp("  ") is None
+    assert parse_single_elisp("\n") is None
+    assert parse_single_elisp(";; just a comment") is None

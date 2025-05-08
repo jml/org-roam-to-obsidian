@@ -323,7 +323,7 @@ def parse_elisp(source: str) -> List[Expression]:
     return parser.parse_all()
 
 
-def parse_single_elisp(source: str) -> Expression:
+def parse_single_elisp(source: str) -> Optional[Expression]:
     """
     Parse exactly one Elisp expression from source.
 
@@ -331,21 +331,17 @@ def parse_single_elisp(source: str) -> Expression:
         source: The Elisp source code containing a single expression
 
     Returns:
-        A single Expression object
+        A single Expression object, or None if no expressions are found
 
     Raises:
-        ElispParseError: If there are zero or multiple expressions
+        ElispParseError: If there are multiple expressions
     """
     tokens = list(tokenize(source))
     parser = Parser(tokens)
 
     # Parse the first expression
     if not tokens:
-        raise ElispParseError(
-            message="No expressions found in input",
-            tokens=tokens,
-            position=0,
-        )
+        return None
 
     expression = parser.parse_expression()
 
