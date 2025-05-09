@@ -86,19 +86,19 @@ def sample_db_path():
             [
                 (
                     '"/path/to/file1.org"',  # Proper Elisp string format
-                    "hash1",
+                    '"hash1"',
                     "(25821 50943 0 0)",
                     "(25821 50943 0 0)",
                 ),
                 (
                     '"/path/to/file2.org"',  # Proper Elisp string format
-                    "hash2",
+                    '"hash2"',
                     "(26316 12970 0 0)",
                     "(26316 12970 0 0)",
                 ),
                 (
                     '"/path/to/quoted_file.org"',  # Already in correct format
-                    "hash3",
+                    '"hash3"',
                     "(26316 12970 0 0)",
                     "(26316 12970 0 0)",
                 ),
@@ -111,39 +111,39 @@ def sample_db_path():
             VALUES (?, ?, ?, ?, ?, ?, ?)""",
             [
                 (
-                    "node1",
+                    '"node1"',
                     '"/path/to/file1.org"',  # Proper Elisp string format
                     '"Node 1"',  # Properly quoted string
                     1,
                     100,
-                    '(:CREATED "20220101")',  # Proper Elisp plist format
+                    '((:CREATED . "20220101"))',  # Proper Elisp plist format
                     '("Parent" "Child")',  # Proper Elisp list format
                 ),
                 (
-                    "node2",
+                    '"node2"',
                     '"/path/to/file1.org"',  # Proper Elisp string format
                     '"Node 2"',  # Properly quoted string
                     2,
                     200,
-                    '(:CREATED "20220102")',  # Proper Elisp plist format
+                    '((:CREATED . "20220102"))',  # Proper Elisp plist format
                     '("Parent" "Child" "Grandchild")',  # Proper Elisp list format
                 ),
                 (
-                    "node3",
+                    '"node3"',
                     '"/path/to/file2.org"',  # Proper Elisp string format
                     '"Node 3"',  # Properly quoted string
                     1,
                     100,
-                    '(:CREATED "20220103")',  # Proper Elisp plist format
+                    '((:CREATED . "20220103"))',  # Proper Elisp plist format
                     "()",  # Proper Elisp empty list
                 ),
                 (
-                    "node4",
+                    '"node4"',
                     '"/path/to/quoted_file.org"',  # Already in correct format
                     '"Node 4"',  # Properly quoted string
                     1,
                     100,
-                    '(:CREATED "20220104")',  # Proper Elisp plist format
+                    '((:CREATED . "20220104"))',  # Proper Elisp plist format
                     "()",  # Proper Elisp empty list
                 ),
             ],
@@ -153,9 +153,9 @@ def sample_db_path():
         conn.executemany(
             "INSERT INTO tags (node_id, tag) VALUES (?, ?)",
             [
-                ("node1", "tag1"),
-                ("node1", "tag2"),
-                ("node2", "tag3"),
+                ('"node1"', '"tag1"'),
+                ('"node1"', '"tag2"'),
+                ('"node2"', '"tag3"'),
             ],
         )
 
@@ -163,9 +163,9 @@ def sample_db_path():
         conn.executemany(
             "INSERT INTO aliases (node_id, alias) VALUES (?, ?)",
             [
-                ("node1", "alias1"),
-                ("node1", "alias2"),
-                ("node3", "alias3"),
+                ('"node1"', '"alias1"'),
+                ('"node1"', '"alias2"'),
+                ('"node3"', '"alias3"'),
             ],
         )
 
@@ -173,8 +173,8 @@ def sample_db_path():
         conn.executemany(
             "INSERT INTO refs (node_id, ref) VALUES (?, ?)",
             [
-                ("node2", "ref1"),
-                ("node2", "ref2"),
+                ('"node2"', '"ref1"'),
+                ('"node2"', '"ref2"'),
             ],
         )
 
@@ -183,15 +183,15 @@ def sample_db_path():
             "INSERT INTO links (source, dest, type, properties) VALUES (?, ?, ?, ?)",
             [
                 (
-                    "node1",
-                    "node2",
-                    "id",
+                    '"node1"',
+                    '"node2"',
+                    '"id"',
                     "(:position 100)",
                 ),  # Proper Elisp plist format
                 (
-                    "node2",
-                    "node3",
-                    "id",
+                    '"node2"',
+                    '"node3"',
+                    '"id"',
                     "(:position 200)",
                 ),  # Proper Elisp plist format
             ],
@@ -212,7 +212,7 @@ def test_orgroamnode_creation():
         level=1,
         pos=100,
         olp=["Parent", "Child"],
-        properties={"CREATED": "20220101"},
+        properties={":CREATED": "20220101"},
         tags=["tag1", "tag2"],
         aliases=["alias1", "alias2"],
         refs=["ref1", "ref2"],
@@ -225,7 +225,7 @@ def test_orgroamnode_creation():
         level=1,
         pos=100,
         olp=["Parent", "Child"],
-        properties={"CREATED": "20220101"},
+        properties={":CREATED": "20220101"},
         tags=["tag1", "tag2"],
         aliases=["alias1", "alias2"],
         refs=["ref1", "ref2"],
@@ -339,7 +339,7 @@ def test_get_all_nodes(sample_db_path):
         level=1,
         pos=100,
         olp=["Parent", "Child"],
-        properties={"CREATED": "20220101"},
+        properties={":CREATED": "20220101"},
         tags=["tag1", "tag2"],
         aliases=["alias1", "alias2"],
         refs=[],
@@ -352,7 +352,7 @@ def test_get_all_nodes(sample_db_path):
         level=2,
         pos=200,
         olp=["Parent", "Child", "Grandchild"],
-        properties={"CREATED": "20220102"},
+        properties={":CREATED": "20220102"},
         tags=["tag3"],
         aliases=[],
         refs=["ref1", "ref2"],
@@ -365,7 +365,7 @@ def test_get_all_nodes(sample_db_path):
         level=1,
         pos=100,
         olp=[],
-        properties={"CREATED": "20220103"},
+        properties={":CREATED": "20220103"},
         tags=[],
         aliases=["alias3"],
         refs=[],
@@ -378,7 +378,7 @@ def test_get_all_nodes(sample_db_path):
         level=1,
         pos=100,
         olp=[],
-        properties={"CREATED": "20220104"},
+        properties={":CREATED": "20220104"},
         tags=[],
         aliases=[],
         refs=[],
@@ -412,7 +412,7 @@ def test_get_node_by_id(sample_db_path):
         level=1,
         pos=100,
         olp=["Parent", "Child"],
-        properties={"CREATED": "20220101"},
+        properties={":CREATED": "20220101"},
         tags=["tag1", "tag2"],
         aliases=["alias1", "alias2"],
         refs=[],
@@ -509,7 +509,7 @@ def test_get_file_nodes(sample_db_path):
         level=1,
         pos=100,
         olp=["Parent", "Child"],
-        properties={"CREATED": "20220101"},
+        properties={":CREATED": "20220101"},
         tags=["tag1", "tag2"],
         aliases=["alias1", "alias2"],
         refs=[],
@@ -522,7 +522,7 @@ def test_get_file_nodes(sample_db_path):
         level=2,
         pos=200,
         olp=["Parent", "Child", "Grandchild"],
-        properties={"CREATED": "20220102"},
+        properties={":CREATED": "20220102"},
         tags=["tag3"],
         aliases=[],
         refs=["ref1", "ref2"],
@@ -542,7 +542,7 @@ def test_get_file_nodes(sample_db_path):
         level=1,
         pos=100,
         olp=[],
-        properties={"CREATED": "20220103"},
+        properties={":CREATED": "20220103"},
         tags=[],
         aliases=["alias3"],
         refs=[],

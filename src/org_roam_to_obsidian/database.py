@@ -9,21 +9,119 @@ elements needed for conversion to Obsidian.
 import sqlite3
 from dataclasses import field
 from pathlib import Path
-from typing import Any, Iterator, Tuple
+from typing import Any, Callable, ClassVar, Generic, Iterator, Mapping, Tuple, TypeVar
 
 from pydantic.dataclasses import dataclass
 
 from org_roam_to_obsidian.elisp import parse_single_elisp
 from org_roam_to_obsidian.elisp_parser import (
+    Expression,
     ParseError,
+    parse_elisp_alist_to_dict,
+    parse_elisp_int,
     parse_elisp_list,
     parse_elisp_path,
     parse_elisp_plist_to_dict,
+    parse_elisp_string,
     parse_elisp_time,
 )
 from org_roam_to_obsidian.logging import get_logger
 
 log = get_logger(__name__)
+
+# Generic type for field parsers
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class Field(Generic[T]):
+    """Declarative field definition for parsing database values."""
+
+    name: str  # Field name in the database row
+    parser: Callable[[Expression], T]  # Function to parse the field
+    required: bool = True  # Whether field is required
+    default: T | None = None  # Default value if field is missing or None
+
+
+def parse_field(row: Mapping[str, Any], field: Field[T]) -> T | None:
+    """
+    Parse a field from a database row using the field definition.
+
+    Args:
+        row: Database row (sqlite3.Row or dictionary)
+        field: Field definition
+
+    Returns:
+        Parsed value of type T, or None if optional and missing
+
+    Raises:
+        ParseError: If a required field is missing or can't be parsed
+    """
+    # Get raw value using direct access which works with both dict and sqlite3.Row
+    try:
+        raw_value = row[field.name]
+    except (KeyError, IndexError):
+        if field.required:
+            raise ParseError(f"Required field {field.name} is missing")
+        return field.default
+
+    if raw_value is None:
+        if field.required:
+            raise ParseError(f"Required field {field.name} is missing")
+        return field.default
+
+    # Parse elisp expression
+    expr = parse_single_elisp(str(raw_value))
+    if expr is None:
+        if field.required:
+            raise ParseError(f"Failed to parse {field.name}: {raw_value}")
+        return field.default
+
+    # Parse expression to destination type
+    try:
+        return field.parser(expr)
+    except ParseError as e:
+        raise ParseError(f"Failed to parse {repr(raw_value)}: {e}")
+
+
+def parse_fields(
+    row: Mapping[str, Any], fields: dict[str, Field[Any]]
+) -> dict[str, Any]:
+    """Parse multiple fields from a row according to field definitions."""
+    return {
+        field_name: parse_field(row, field_def)
+        for field_name, field_def in fields.items()
+    }
+
+
+def parse_string_list(data: Expression) -> list[str]:
+    """
+    Convert olp from Elisp expression to list of strings.
+
+    Args:
+        data: Elisp expression representing an olp
+
+    Returns:
+        List of strings from the olp
+
+    Raises:
+        ParseError: If parsing fails
+    """
+    objects = parse_elisp_list(data)
+    olp = [o for o in objects if isinstance(o, str)]
+    if len(olp) < len(objects):
+        raise TypeError(f"Found unexpected non-string in olp: {objects}")
+    return olp
+
+
+def parse_strings(strings: list[str]) -> list[str]:
+    output = []
+    for s in strings:
+        expr = parse_single_elisp(s)
+        if expr is None:
+            raise ParseError(f"Could not parse list of emacs expressions: {strings}")
+        output.append(parse_elisp_string(expr))
+    return output
 
 
 @dataclass(frozen=True)
@@ -41,8 +139,26 @@ class OrgRoamNode:
     aliases: list[str] = field(default_factory=list)
     refs: list[str] = field(default_factory=list)
 
+    # Define field parsers as class variables
+    FIELDS: ClassVar[dict[str, Field[Any]]] = {
+        "id": Field[str](name="id", parser=parse_elisp_string, required=True),
+        "file_path": Field[Path](name="file", parser=parse_elisp_path, required=True),
+        "title": Field[str](name="title", parser=parse_elisp_string, required=True),
+        "level": Field[int](name="level", parser=parse_elisp_int, required=True),
+        "pos": Field[int](name="pos", parser=parse_elisp_int, required=True),
+        "olp": Field[list[str]](
+            name="olp", parser=parse_string_list, required=False, default=[]
+        ),
+        "properties": Field[dict[str, object]](
+            name="properties",
+            parser=parse_elisp_alist_to_dict,
+            required=False,
+            default={},
+        ),
+    }
+
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> "OrgRoamNode":
+    def from_row(cls, row: Mapping[str, Any]) -> "OrgRoamNode":
         """
         Create an OrgRoamNode from a database row.
 
@@ -52,42 +168,31 @@ class OrgRoamNode:
         Returns:
             An OrgRoamNode instance
         """
-        from org_roam_to_obsidian.elisp_parser import parse_elisp_string
+        # Parse fields according to definitions
+        parsed_values = parse_fields(row, cls.FIELDS)
 
-        # Parse file path from Elisp string
-        expr = parse_single_elisp(row["file"])
-        if expr is None:
-            raise ParseError(f"Failed to parse file path: {row['file']}")
-        file_path = parse_elisp_path(expr)
+        # Handle special cases like tags which need custom processing
+        try:
+            tags = row["tags"].split(",") if row["tags"] else []
+        except (KeyError, IndexError):
+            tags = []
+        tags = parse_strings(tags)
 
-        # Parse title as Elisp string
-        title = row["title"]
-        expression = parse_single_elisp(title)
-        if expression:
-            title = parse_elisp_string(expression)
+        # Aliases and refs are already parsed by _get_node_aliases and _get_node_refs
+        try:
+            aliases = row["aliases"]
+        except (KeyError, IndexError):
+            aliases = []
 
-        # Parse olp
-        olp = parse_olp(row["olp"]) if row["olp"] else []
+        try:
+            refs = row["refs"]
+        except (KeyError, IndexError):
+            refs = []
 
-        # Get properties
-        properties = {}
-        if row["properties"]:
-            expression = parse_single_elisp(row["properties"])
-            if expression:
-                properties = parse_elisp_plist_to_dict(expression)
+        # Add these to our parsed values
+        parsed_values.update({"tags": tags, "aliases": aliases, "refs": refs})
 
-        return cls(
-            id=row["id"],
-            file_path=file_path,
-            title=title,
-            level=row["level"],
-            pos=row["pos"],
-            olp=olp,
-            properties=properties,
-            tags=row.get("tags", "").split(",") if row.get("tags") else [],
-            aliases=row.get("aliases", []),
-            refs=row.get("refs", []),
-        )
+        return cls(**parsed_values)
 
 
 @dataclass(frozen=True)
@@ -98,6 +203,34 @@ class OrgRoamLink:
     dest_id: str
     type: str
     properties: dict[str, object] = field(default_factory=dict)
+
+    # Define field parsers as class variables
+    FIELDS: ClassVar[dict[str, Field[Any]]] = {
+        "source_id": Field[str](
+            name="source", parser=parse_elisp_string, required=True
+        ),
+        "dest_id": Field[str](name="dest", parser=parse_elisp_string, required=True),
+        "type": Field[str](name="type", parser=parse_elisp_string, required=True),
+        "properties": Field[dict[str, object]](
+            name="properties",
+            parser=parse_elisp_plist_to_dict,
+            required=False,
+            default={},
+        ),
+    }
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any]) -> "OrgRoamLink":
+        """
+        Create an OrgRoamLink from a database row.
+
+        Args:
+            row: A dict-like object with column names as keys
+
+        Returns:
+            An OrgRoamLink instance
+        """
+        return cls(**parse_fields(row, cls.FIELDS))
 
 
 @dataclass(frozen=True)
@@ -112,6 +245,37 @@ class OrgRoamFile:
     mtime: Tuple[
         int, int, int, int
     ]  # Emacs Lisp time tuple: (HIGH LOW MICROSEC PICOSEC)
+
+    # Define field parsers as class variables
+    FIELDS: ClassVar[dict[str, Field[Any]]] = {
+        "file_path": Field[Path](name="file", parser=parse_elisp_path, required=True),
+        "hash": Field[str](name="hash", parser=parse_elisp_string, required=True),
+        "atime": Field[Tuple[int, int, int, int]](
+            name="atime",
+            parser=parse_elisp_time,
+            required=False,
+            default=(0, 0, 0, 0),
+        ),
+        "mtime": Field[Tuple[int, int, int, int]](
+            name="mtime",
+            parser=parse_elisp_time,
+            required=False,
+            default=(0, 0, 0, 0),
+        ),
+    }
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any]) -> "OrgRoamFile":
+        """
+        Create an OrgRoamFile from a database row.
+
+        Args:
+            row: A dict-like object with column names as keys
+
+        Returns:
+            An OrgRoamFile instance
+        """
+        return cls(**parse_fields(row, cls.FIELDS))
 
 
 class OrgRoamDatabase:
@@ -170,34 +334,7 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Parse file path as Elisp string
-            expr = parse_single_elisp(row["file"])
-            if expr is None:
-                raise ParseError(f"Failed to parse file path: {row['file']}")
-            file_path = parse_elisp_path(expr)
-
-            # Parse time values
-            atime_tuple = (0, 0, 0, 0)
-            mtime_tuple = (0, 0, 0, 0)
-
-            if row["atime"]:
-                atime_expr = parse_single_elisp(row["atime"])
-                if atime_expr is None:
-                    raise ParseError(f"Failed to parse atime: {row['atime']}")
-                atime_tuple = parse_elisp_time(atime_expr)
-
-            if row["mtime"]:
-                mtime_expr = parse_single_elisp(row["mtime"])
-                if mtime_expr is None:
-                    raise ParseError(f"Failed to parse mtime: {row['mtime']}")
-                mtime_tuple = parse_elisp_time(mtime_expr)
-
-            yield OrgRoamFile(
-                file_path=file_path,
-                hash=row["hash"],
-                atime=atime_tuple,
-                mtime=mtime_tuple,
-            )
+            yield OrgRoamFile.from_row(row)
 
     def get_all_nodes(self) -> Iterator[OrgRoamNode]:
         """
@@ -251,7 +388,7 @@ class OrgRoamDatabase:
             (node_id,),
         )
 
-        return [row["alias"] for row in cursor]
+        return parse_strings([row["alias"] for row in cursor])
 
     def _get_node_refs(self, node_id: str) -> list[str]:
         """
@@ -272,7 +409,7 @@ class OrgRoamDatabase:
             (node_id,),
         )
 
-        return [row["ref"] for row in cursor]
+        return parse_strings([row["ref"] for row in cursor])
 
     def get_node_by_id(self, node_id: str) -> OrgRoamNode | None:
         """
@@ -284,6 +421,7 @@ class OrgRoamDatabase:
         Returns:
             OrgRoamNode object or None if not found
         """
+        node_id = f'"{node_id}"'
         cursor = self.conn.execute(
             """
             SELECT n.id, n.file, n.title, n.level, n.pos, n.properties, n.olp
@@ -338,19 +476,7 @@ class OrgRoamDatabase:
         )
 
         for row in cursor:
-            # Convert properties from Elisp to dict
-            properties = {}
-            if row["properties"]:
-                expression = parse_single_elisp(row["properties"])
-                if expression:
-                    properties = parse_elisp_plist_to_dict(expression)
-
-            yield OrgRoamLink(
-                source_id=row["source"],
-                dest_id=row["dest"],
-                type=row["type"],
-                properties=properties,
-            )
+            yield OrgRoamLink.from_row(row)
 
     def get_links_for_node(self, node_id: str) -> Iterator[OrgRoamLink]:
         """
@@ -362,6 +488,8 @@ class OrgRoamDatabase:
         Returns:
             Iterator of OrgRoamLink objects
         """
+        # Format the node_id as an Elisp string (quoted) to match database storage
+        elisp_node_id = f'"{node_id}"'
         cursor = self.conn.execute(
             """
             SELECT source, dest, type, properties
@@ -369,23 +497,11 @@ class OrgRoamDatabase:
             WHERE source = ?
             ORDER BY dest
             """,
-            (node_id,),
+            (elisp_node_id,),
         )
 
         for row in cursor:
-            # Convert properties from Elisp to dict
-            properties = {}
-            if row["properties"]:
-                expression = parse_single_elisp(row["properties"])
-                if expression:
-                    properties = parse_elisp_plist_to_dict(expression)
-
-            yield OrgRoamLink(
-                source_id=row["source"],
-                dest_id=row["dest"],
-                type=row["type"],
-                properties=properties,
-            )
+            yield OrgRoamLink.from_row(row)
 
     def get_backlinks_for_node(self, node_id: str) -> Iterator[OrgRoamLink]:
         """
@@ -397,6 +513,8 @@ class OrgRoamDatabase:
         Returns:
             Iterator of OrgRoamLink objects
         """
+        # Format the node_id as an Elisp string (quoted) to match database storage
+        elisp_node_id = f'"{node_id}"'
         cursor = self.conn.execute(
             """
             SELECT source, dest, type, properties
@@ -404,23 +522,11 @@ class OrgRoamDatabase:
             WHERE dest = ?
             ORDER BY source
             """,
-            (node_id,),
+            (elisp_node_id,),
         )
 
         for row in cursor:
-            # Convert properties from Elisp to dict
-            properties = {}
-            if row["properties"]:
-                expression = parse_single_elisp(row["properties"])
-                if expression:
-                    properties = parse_elisp_plist_to_dict(expression)
-
-            yield OrgRoamLink(
-                source_id=row["source"],
-                dest_id=row["dest"],
-                type=row["type"],
-                properties=properties,
-            )
+            yield OrgRoamLink.from_row(row)
 
     def get_file_nodes(self, file_path: Path) -> Iterator[OrgRoamNode]:
         """
@@ -489,16 +595,18 @@ class OrgRoamDatabase:
             """
         )
 
-        id_to_file: dict[str, Path] = {}
-        for row in cursor:
-            # Parse file path as Elisp string
-            expr = parse_single_elisp(row["file"])
-            if expr is None:
-                raise ParseError(f"Failed to parse file path: {row['file']}")
-            file_path = parse_elisp_path(expr)
-            id_to_file[row["id"]] = file_path
+        id_field = OrgRoamNode.FIELDS["id"]
+        file_field = OrgRoamNode.FIELDS["file_path"]
 
-        return id_to_file
+        result: dict[str, Path] = {}
+        for row in cursor:
+            id_value = parse_field(row, id_field)
+            file_value = parse_field(row, file_field)
+            assert id_value is not None, "Node ID should not be None"
+            assert file_value is not None, "File path should not be None"
+            result[id_value] = file_value
+
+        return result
 
     def create_file_to_nodes_map(self) -> dict[Path, list[OrgRoamNode]]:
         """
@@ -523,30 +631,3 @@ class OrgRoamDatabase:
             nodes.sort(key=lambda n: n.pos)
 
         return file_to_nodes
-
-
-def parse_olp(data: str) -> list[str]:
-    """
-    Convert olp from Elisp string to list of strings.
-
-    Args:
-        data: Elisp string representation of an olp
-
-    Returns:
-        List of strings from the olp
-
-    Raises:
-        ParseError: If parsing fails
-    """
-    try:
-        expr = parse_single_elisp(data)
-        if not expr:
-            return []
-
-        objects = parse_elisp_list(expr)
-        olp = [o for o in objects if isinstance(o, str)]
-        if len(olp) < len(objects):
-            raise TypeError(f"Found unexpected non-string in olp: {objects}")
-        return olp
-    except (ParseError, TypeError, SyntaxError) as e:
-        raise ParseError(f"Failed to parse olp: {e}") from e

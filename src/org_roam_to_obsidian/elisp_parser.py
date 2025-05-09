@@ -73,12 +73,34 @@ def parse_elisp_string(expr: Expression) -> str:
         return expr.value
 
     if isinstance(expr, SymbolExpr):
-        raise ParseError("Expected string, got str")
+        raise ParseError(f"Expected string, got str: {expr}")
 
     value = elisp_expr_to_python(expr)
     if not isinstance(value, str):
         raise ParseError(f"Expected string, got {type(value).__name__}")
     return value
+
+
+def parse_elisp_int(expr: Expression) -> int:
+    """
+    Extract an integer value from an Elisp expression.
+
+    Args:
+        expr: An Elisp expression object
+
+    Returns:
+        The integer value
+
+    Raises:
+        ParseError: If the expression is not an integer
+    """
+    if not isinstance(expr, NumberExpr):
+        raise ParseError(f"Expected number, got {type(expr).__name__}")
+
+    if isinstance(expr.value, float) and not expr.value.is_integer():
+        raise ParseError(f"Expected integer, got float {expr.value}")
+
+    return int(expr.value)
 
 
 def parse_elisp_path(expr: Expression) -> Path:
