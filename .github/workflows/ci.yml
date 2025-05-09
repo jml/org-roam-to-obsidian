@@ -29,10 +29,14 @@ jobs:
         curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to $HOME/.local/bin
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
+    - name: Create virtual environment and install dependencies
       run: |
+        uv venv
+        source .venv/bin/activate
         uv pip install -e ".[dev]"
         uv pip install ruff mypy pytest
 
     - name: Run checks
-      run: just check
+      run: |
+        source .venv/bin/activate
+        just check
