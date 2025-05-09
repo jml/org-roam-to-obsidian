@@ -14,7 +14,7 @@ from org_roam_to_obsidian.database import OrgRoamDatabase, OrgRoamFile, OrgRoamN
 from org_roam_to_obsidian.logging import get_logger
 
 # Silence pypandoc's debug output
-pypandoc_logger = logging.getLogger('pypandoc')
+pypandoc_logger = logging.getLogger("pypandoc")
 pypandoc_logger.setLevel(logging.ERROR)
 pypandoc_logger.propagate = False
 
@@ -498,6 +498,10 @@ class OrgRoamConverter:
         # Add tags if configured and available
         if config.convert_tags and node.tags:
             frontmatter_data["tags"] = node.tags
+
+        # Add refs (links) if available
+        if node.refs:
+            frontmatter_data["links"] = node.refs
 
         return frontmatter_data
 

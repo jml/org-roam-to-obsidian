@@ -754,7 +754,7 @@ class TestOrgRoamConverter:
             properties={"CREATED": "2023-01-15"},  # Should be ignored
             tags=["tag1", "tag2"],
             aliases=["alias1", "alias2"],
-            refs=[],
+            refs=["http:example.com", "https:test.org"],
         )
 
         # Create converter with default config
@@ -779,18 +779,17 @@ class TestOrgRoamConverter:
         # Verify frontmatter contents
         assert frontmatter_data["tags"] == ["tag1", "tag2"]
         assert frontmatter_data["aliases"] == ["alias1", "alias2"]
+        assert frontmatter_data["links"] == ["http:example.com", "https:test.org"]
 
-    def test_generate_frontmatter_data_without_aliases_and_tags(
-        self, temp_source, temp_dir
-    ):
+    def test_generate_frontmatter_data_without_metadata(self, temp_source, temp_dir):
         """
-        Generate frontmatter data when aliases and tags are missing.
+        Generate frontmatter data when aliases, tags, and refs are missing.
         """
         from pathlib import Path
 
         from org_roam_to_obsidian.database import OrgRoamNode
 
-        # Create test node without aliases and tags
+        # Create test node without aliases, tags, and refs
         node = OrgRoamNode(
             id="test-node",
             file_path=Path("/path/to/file.org"),

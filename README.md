@@ -93,9 +93,9 @@ You can also set the base path in your config file using the `source_base_path` 
 
 ## Conversion Details
 
-### Properties Handling
+### Properties and Refs Handling
 
-Org-roam properties are converted to YAML frontmatter in Obsidian:
+Org-roam properties, tags, aliases, and references are converted to YAML frontmatter in Obsidian:
 
 **Org-roam:**
 ```org
@@ -103,15 +103,20 @@ Org-roam properties are converted to YAML frontmatter in Obsidian:
 :ID:       20210505T152634
 :ROAM_REFS: https://example.com
 :END:
+#+FILETAGS: :concept:reference:
+#+ROAM_ALIAS: "Knowledge Management"
 ```
 
 **Obsidian:**
 ```markdown
 ---
-id: 20210505T152634
-aliases: []
-tags: []
-refs: https://example.com
+aliases:
+  - Knowledge Management
+tags:
+  - concept
+  - reference
+links:
+  - https:example.com
 ---
 ```
 
