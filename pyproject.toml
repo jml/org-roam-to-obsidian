@@ -12,6 +12,7 @@ dependencies = [
     "markdown",
     "structlog>=23.0.0",
     "pypandoc",
+    "PyYAML",
 ]
 
 [project.optional-dependencies]
