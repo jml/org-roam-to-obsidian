@@ -103,6 +103,13 @@ Org-roam links are converted to Obsidian's wiki-link format:
 [[Example Note]]
 ```
 
+## A note on the code
+
+This was almost entirely written with Claude Code, using the 3.7 Sonnet model.
+I've never written a code base with Claude Code before, so it was very much a learning experience.
+
+If it were hand-crafted.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
