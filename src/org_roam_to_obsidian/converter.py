@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import tomllib  # Standard library in Python 3.11+
 from pathlib import Path
@@ -11,6 +12,11 @@ from pydantic.dataclasses import dataclass
 
 from org_roam_to_obsidian.database import OrgRoamDatabase, OrgRoamFile, OrgRoamNode
 from org_roam_to_obsidian.logging import get_logger
+
+# Silence pypandoc's debug output
+pypandoc_logger = logging.getLogger('pypandoc')
+pypandoc_logger.setLevel(logging.ERROR)
+pypandoc_logger.propagate = False
 
 log = get_logger(__name__)
 
@@ -247,7 +253,7 @@ class OrgRoamConverter:
             extra_args=["--wrap=preserve"],
         )
 
-        log.info("converted_file", source=str(src_file))
+        log.debug("converted_file", source=str(src_file))
         return cast(str, markdown_content)
 
     def _get_destination_path(self, node: "OrgRoamNode") -> Path:
@@ -406,7 +412,7 @@ class OrgRoamConverter:
                     id_to_node,
                     self.config.conversion,
                 )
-                log.info(
+                log.debug(
                     "converted_links",
                     source=str(src_file),
                 )
