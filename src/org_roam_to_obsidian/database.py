@@ -7,9 +7,19 @@ elements needed for conversion to Obsidian.
 """
 
 import sqlite3
+from abc import ABC, abstractmethod
 from dataclasses import field
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, Iterator, Mapping, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Iterator,
+    Mapping,
+    Tuple,
+    TypeVar,
+)
 
 from pydantic.dataclasses import dataclass
 
@@ -29,51 +39,54 @@ from org_roam_to_obsidian.logging import get_logger
 
 log = get_logger(__name__)
 
-# Generic type for field parsers
+# Type variable for field values
 T = TypeVar("T")
 
 
+class Field(Generic[T], ABC):
+    """Base class for field parsers."""
+
+    name: str
+
+    @abstractmethod
+    def parse(self, row: Mapping[str, Any]) -> T:
+        """Parse a field from a database row."""
+        pass
+
+
 @dataclass(frozen=True)
-class Field(Generic[T]):
-    """Declarative field definition for parsing database values."""
+class RequiredField(Field[T]):
+    """Declarative field definition for required fields."""
 
     name: str  # Field name in the database row
     parser: Callable[[Expression], T]  # Function to parse the field
-    required: bool = True  # Whether field is required
-    default: T | None = None  # Default value if field is missing or None
 
-    def parse(self, row: Mapping[str, Any]) -> T | None:
+    def parse(self, row: Mapping[str, Any]) -> T:
         """
-        Parse a field from a database row using the field definition.
+        Parse a required field from a database row.
 
         Args:
             row: Database row (sqlite3.Row or dictionary)
 
         Returns:
-            Parsed value of type T, or None if optional and missing
+            Parsed value of type T
 
         Raises:
-            ParseError: If a required field is missing or can't be parsed
+            ParseError: If the field is missing or can't be parsed
         """
         # Get raw value using direct access which works with both dict and sqlite3.Row
         try:
             raw_value = row[self.name]
         except (KeyError, IndexError):
-            if self.required:
-                raise ParseError(f"Required field {self.name} is missing")
-            return self.default
+            raise ParseError(f"Required field {self.name} is missing")
 
         if raw_value is None:
-            if self.required:
-                raise ParseError(f"Required field {self.name} is missing")
-            return self.default
+            raise ParseError(f"Required field {self.name} is missing")
 
         # Parse elisp expression
         expr = parse_single_elisp(str(raw_value))
         if expr is None:
-            if self.required:
-                raise ParseError(f"Failed to parse {self.name}: {raw_value}")
-            return self.default
+            raise ParseError(f"Failed to parse {self.name}: {raw_value}")
 
         # Parse expression to destination type
         try:
@@ -82,13 +95,51 @@ class Field(Generic[T]):
             raise ParseError(f"Failed to parse {repr(raw_value)}: {e}")
 
 
+@dataclass(frozen=True)
+class OptionalField(Field[T]):
+    """Declarative field definition for optional fields."""
+
+    name: str  # Field name in the database row
+    parser: Callable[[Expression], T]  # Function to parse the field
+    default: T  # Default value if field is missing or None
+
+    def parse(self, row: Mapping[str, Any]) -> T:
+        """
+        Parse an optional field from a database row.
+
+        Args:
+            row: Database row (sqlite3.Row or dictionary)
+
+        Returns:
+            Parsed value of type T, or the default value if missing/unparseable
+        """
+        # Get raw value using direct access which works with both dict and sqlite3.Row
+        try:
+            raw_value = row[self.name]
+        except (KeyError, IndexError):
+            return self.default
+
+        if raw_value is None:
+            return self.default
+
+        # Parse elisp expression
+        expr = parse_single_elisp(str(raw_value))
+        if expr is None:
+            return self.default
+
+        # Parse expression to destination type
+        try:
+            return self.parser(expr)
+        except ParseError:
+            return self.default
+
+
 def parse_fields(
     row: Mapping[str, Any], fields: dict[str, Field[Any]]
 ) -> dict[str, Any]:
     """Parse multiple fields from a row according to field definitions."""
     return {
-        field_name: field_def.parse(row)
-        for field_name, field_def in fields.items()
+        field_name: field_def.parse(row) for field_name, field_def in fields.items()
     }
 
 
@@ -139,18 +190,17 @@ class OrgRoamNode:
 
     # Define field parsers as class variables
     FIELDS: ClassVar[dict[str, Field[Any]]] = {
-        "id": Field[str](name="id", parser=parse_elisp_string, required=True),
-        "file_path": Field[Path](name="file", parser=parse_elisp_path, required=True),
-        "title": Field[str](name="title", parser=parse_elisp_string, required=True),
-        "level": Field[int](name="level", parser=parse_elisp_int, required=True),
-        "pos": Field[int](name="pos", parser=parse_elisp_int, required=True),
-        "olp": Field[list[str]](
-            name="olp", parser=parse_string_list, required=False, default=[]
+        "id": RequiredField[str](name="id", parser=parse_elisp_string),
+        "file_path": RequiredField[Path](name="file", parser=parse_elisp_path),
+        "title": RequiredField[str](name="title", parser=parse_elisp_string),
+        "level": RequiredField[int](name="level", parser=parse_elisp_int),
+        "pos": RequiredField[int](name="pos", parser=parse_elisp_int),
+        "olp": OptionalField[list[str]](
+            name="olp", parser=parse_string_list, default=[]
         ),
-        "properties": Field[dict[str, object]](
+        "properties": OptionalField[dict[str, object]](
             name="properties",
             parser=parse_elisp_alist_to_dict,
-            required=False,
             default={},
         ),
     }
@@ -204,15 +254,12 @@ class OrgRoamLink:
 
     # Define field parsers as class variables
     FIELDS: ClassVar[dict[str, Field[Any]]] = {
-        "source_id": Field[str](
-            name="source", parser=parse_elisp_string, required=True
-        ),
-        "dest_id": Field[str](name="dest", parser=parse_elisp_string, required=True),
-        "type": Field[str](name="type", parser=parse_elisp_string, required=True),
-        "properties": Field[dict[str, object]](
+        "source_id": RequiredField[str](name="source", parser=parse_elisp_string),
+        "dest_id": RequiredField[str](name="dest", parser=parse_elisp_string),
+        "type": RequiredField[str](name="type", parser=parse_elisp_string),
+        "properties": OptionalField[dict[str, object]](
             name="properties",
             parser=parse_elisp_plist_to_dict,
-            required=False,
             default={},
         ),
     }
@@ -246,18 +293,16 @@ class OrgRoamFile:
 
     # Define field parsers as class variables
     FIELDS: ClassVar[dict[str, Field[Any]]] = {
-        "file_path": Field[Path](name="file", parser=parse_elisp_path, required=True),
-        "hash": Field[str](name="hash", parser=parse_elisp_string, required=True),
-        "atime": Field[Tuple[int, int, int, int]](
+        "file_path": RequiredField[Path](name="file", parser=parse_elisp_path),
+        "hash": RequiredField[str](name="hash", parser=parse_elisp_string),
+        "atime": OptionalField[Tuple[int, int, int, int]](
             name="atime",
             parser=parse_elisp_time,
-            required=False,
             default=(0, 0, 0, 0),
         ),
-        "mtime": Field[Tuple[int, int, int, int]](
+        "mtime": OptionalField[Tuple[int, int, int, int]](
             name="mtime",
             parser=parse_elisp_time,
-            required=False,
             default=(0, 0, 0, 0),
         ),
     }
@@ -343,8 +388,8 @@ class OrgRoamDatabase:
         """
         cursor = self.conn.execute(
             """
-            SELECT n.id, n.file, n.title, n.level, n.pos, n.properties, 
-                   group_concat(t.tag, ',') as tags, 
+            SELECT n.id, n.file, n.title, n.level, n.pos, n.properties,
+                   group_concat(t.tag, ',') as tags,
                    n.olp
             FROM nodes n
             LEFT JOIN tags t ON n.id = t.node_id
@@ -600,8 +645,6 @@ class OrgRoamDatabase:
         for row in cursor:
             id_value = id_field.parse(row)
             file_value = file_field.parse(row)
-            assert id_value is not None, "Node ID should not be None"
-            assert file_value is not None, "File path should not be None"
             result[id_value] = file_value
 
         return result
