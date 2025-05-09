@@ -111,22 +111,6 @@ class OrgRoamConverter:
 
         return converted_content
 
-    @classmethod
-    def from_paths(
-        cls,
-        source: Path,
-        destination: Path,
-        source_base_path: Path,
-        dry_run: bool = False,
-    ) -> "OrgRoamConverter":
-        """Create a converter from paths using default configuration."""
-        return cls(
-            source=source,
-            destination=destination,
-            source_base_path=source_base_path,
-            dry_run=dry_run,
-        )
-
     def _convert_file(self, src_file: Path) -> str:
         """
         Convert an org file to markdown format using pypandoc.

@@ -192,57 +192,6 @@ class TestOrgRoamConverter:
             dest_path = converter._get_destination_path(node)
             assert dest_path.name == expected_filename
 
-    def test_init(self, temp_source, temp_dir):
-        """Converter initialization stores source, destination and configuration."""
-        converter = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-            dry_run=True,
-        )
-
-        expected = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-            dry_run=True,
-        )
-        assert converter == expected
-
-    def test_from_paths(self, temp_source, temp_dir):
-        """Factory method creates converter from source and destination paths."""
-        converter = OrgRoamConverter.from_paths(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-            dry_run=True,
-        )
-
-        expected = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-            dry_run=True,
-        )
-        assert converter == expected
-
-    def test_from_paths_with_default_config(self, temp_source, temp_dir):
-        """Factory method creates converter from source and destination paths with default config."""
-        converter = OrgRoamConverter.from_paths(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-        )
-
-        expected = OrgRoamConverter(
-            source=temp_source,
-            destination=temp_dir,
-            source_base_path=temp_source.parent,
-            dry_run=False,
-        )
-
-        assert converter == expected
-
     def test_from_paths_with_source_base_path(
         self, temp_source, temp_dir, nested_org_files
     ):
@@ -250,7 +199,7 @@ class TestOrgRoamConverter:
         base_path = nested_org_files["base_path"]
 
         # Create converter with source_base_path
-        converter = OrgRoamConverter.from_paths(
+        converter = OrgRoamConverter(
             source=temp_source,
             destination=temp_dir,
             source_base_path=base_path,
@@ -300,7 +249,7 @@ class TestOrgRoamConverter:
         base_path = nested_org_files["base_path"]
 
         # Create converter with explicitly provided source_base_path
-        converter = OrgRoamConverter.from_paths(
+        converter = OrgRoamConverter(
             source=temp_source, destination=temp_dir, source_base_path=base_path
         )
 

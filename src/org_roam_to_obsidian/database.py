@@ -8,7 +8,7 @@ elements needed for conversion to Obsidian.
 
 import sqlite3
 from abc import ABC, abstractmethod
-from dataclasses import field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     Any,
@@ -20,8 +20,6 @@ from typing import (
     Tuple,
     TypeVar,
 )
-
-from pydantic.dataclasses import dataclass
 
 from org_roam_to_obsidian.elisp import parse_single_elisp
 from org_roam_to_obsidian.elisp_parser import (

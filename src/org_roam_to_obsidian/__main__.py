@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 
 import click
-from pydantic import ValidationError
 
 from org_roam_to_obsidian.converter import OrgRoamConverter
 from org_roam_to_obsidian.logging import get_logger, setup_logging
@@ -66,27 +65,14 @@ def main(
     setup_logging(verbose)
 
     try:
-        try:
-            # If source_base_path is not provided, use parent of source database
-            base_path = (
-                source_base_path if source_base_path is not None else source.parent
-            )
-
-            converter = OrgRoamConverter.from_paths(
-                source=source,
-                destination=destination,
-                source_base_path=base_path,
-                dry_run=dry_run,
-            )
-        except ValidationError as e:
-            # Handle validation errors separately for better user experience
-            log.error("configuration_validation_failed")
-            for error in e.errors():
-                error_path = " -> ".join(str(loc) for loc in error["loc"])
-                log.error("validation_error", path=error_path, message=error["msg"])
-            click.echo("Please fix the configuration errors and try again.", err=True)
-            return 1
-
+        # If source_base_path is not provided, use parent of source database
+        base_path = source_base_path if source_base_path is not None else source.parent
+        converter = OrgRoamConverter(
+            source=source,
+            destination=destination,
+            source_base_path=base_path,
+            dry_run=dry_run,
+        )
         converter.run()
         return 0
 
