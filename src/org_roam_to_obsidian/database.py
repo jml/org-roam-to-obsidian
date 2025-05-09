@@ -42,46 +42,44 @@ class Field(Generic[T]):
     required: bool = True  # Whether field is required
     default: T | None = None  # Default value if field is missing or None
 
+    def parse(self, row: Mapping[str, Any]) -> T | None:
+        """
+        Parse a field from a database row using the field definition.
 
-def parse_field(row: Mapping[str, Any], field: Field[T]) -> T | None:
-    """
-    Parse a field from a database row using the field definition.
+        Args:
+            row: Database row (sqlite3.Row or dictionary)
 
-    Args:
-        row: Database row (sqlite3.Row or dictionary)
-        field: Field definition
+        Returns:
+            Parsed value of type T, or None if optional and missing
 
-    Returns:
-        Parsed value of type T, or None if optional and missing
+        Raises:
+            ParseError: If a required field is missing or can't be parsed
+        """
+        # Get raw value using direct access which works with both dict and sqlite3.Row
+        try:
+            raw_value = row[self.name]
+        except (KeyError, IndexError):
+            if self.required:
+                raise ParseError(f"Required field {self.name} is missing")
+            return self.default
 
-    Raises:
-        ParseError: If a required field is missing or can't be parsed
-    """
-    # Get raw value using direct access which works with both dict and sqlite3.Row
-    try:
-        raw_value = row[field.name]
-    except (KeyError, IndexError):
-        if field.required:
-            raise ParseError(f"Required field {field.name} is missing")
-        return field.default
+        if raw_value is None:
+            if self.required:
+                raise ParseError(f"Required field {self.name} is missing")
+            return self.default
 
-    if raw_value is None:
-        if field.required:
-            raise ParseError(f"Required field {field.name} is missing")
-        return field.default
+        # Parse elisp expression
+        expr = parse_single_elisp(str(raw_value))
+        if expr is None:
+            if self.required:
+                raise ParseError(f"Failed to parse {self.name}: {raw_value}")
+            return self.default
 
-    # Parse elisp expression
-    expr = parse_single_elisp(str(raw_value))
-    if expr is None:
-        if field.required:
-            raise ParseError(f"Failed to parse {field.name}: {raw_value}")
-        return field.default
-
-    # Parse expression to destination type
-    try:
-        return field.parser(expr)
-    except ParseError as e:
-        raise ParseError(f"Failed to parse {repr(raw_value)}: {e}")
+        # Parse expression to destination type
+        try:
+            return self.parser(expr)
+        except ParseError as e:
+            raise ParseError(f"Failed to parse {repr(raw_value)}: {e}")
 
 
 def parse_fields(
@@ -89,7 +87,7 @@ def parse_fields(
 ) -> dict[str, Any]:
     """Parse multiple fields from a row according to field definitions."""
     return {
-        field_name: parse_field(row, field_def)
+        field_name: field_def.parse(row)
         for field_name, field_def in fields.items()
     }
 
@@ -600,8 +598,8 @@ class OrgRoamDatabase:
 
         result: dict[str, Path] = {}
         for row in cursor:
-            id_value = parse_field(row, id_field)
-            file_value = parse_field(row, file_field)
+            id_value = id_field.parse(row)
+            file_value = file_field.parse(row)
             assert id_value is not None, "Node ID should not be None"
             assert file_value is not None, "File path should not be None"
             result[id_value] = file_value
