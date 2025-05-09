@@ -11,6 +11,7 @@ from org_roam_to_obsidian.database import (
     OrgRoamFile,
     OrgRoamLink,
     OrgRoamNode,
+    OrgRoamRef,
 )
 
 
@@ -63,6 +64,7 @@ def sample_db_path():
             CREATE TABLE refs (
                 node_id TEXT NOT NULL,
                 ref TEXT NOT NULL,
+                type TEXT NOT NULL,
                 PRIMARY KEY(node_id, ref),
                 FOREIGN KEY(node_id) REFERENCES nodes(id) ON DELETE CASCADE
             );
@@ -169,12 +171,12 @@ def sample_db_path():
             ],
         )
 
-        # Sample refs
+        # Sample refs with type field
         conn.executemany(
-            "INSERT INTO refs (node_id, ref) VALUES (?, ?)",
+            "INSERT INTO refs (node_id, ref, type) VALUES (?, ?, ?)",
             [
-                ('"node2"', '"ref1"'),
-                ('"node2"', '"ref2"'),
+                ('"node2"', '"ref1"', '"http"'),
+                ('"node2"', '"ref2"', '"https"'),
             ],
         )
 
@@ -232,6 +234,25 @@ def test_orgroamnode_creation():
     )
 
     assert node == expected
+
+
+def test_orgroamref_from_row():
+    """Create an OrgRoamRef from a database row using from_row method."""
+    # Simulate a database row with quoted elisp strings
+    row = {
+        "ref": '"example.com"',
+        "type": '"https"',
+    }
+
+    ref = OrgRoamRef.from_row(row)
+
+    expected = OrgRoamRef(
+        ref="example.com",
+        type="https",
+    )
+
+    assert ref == expected
+    assert ref.format() == "https:example.com"
 
 
 def test_orgroamlink_creation():
@@ -355,7 +376,7 @@ def test_get_all_nodes(sample_db_path):
         properties={":CREATED": "20220102"},
         tags=["tag3"],
         aliases=[],
-        refs=["ref1", "ref2"],
+        refs=["http:ref1", "https:ref2"],
     )
 
     expected_node3 = OrgRoamNode(
@@ -525,7 +546,7 @@ def test_get_file_nodes(sample_db_path):
         properties={":CREATED": "20220102"},
         tags=["tag3"],
         aliases=[],
-        refs=["ref1", "ref2"],
+        refs=["http:ref1", "https:ref2"],
     )
 
     assert nodes[0] == expected_node1

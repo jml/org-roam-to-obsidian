@@ -244,6 +244,42 @@ class OrgRoamNode:
 
 
 @dataclass(frozen=True)
+class OrgRoamRef:
+    """Represents an external reference from a node in the org-roam database."""
+
+    ref: str
+    type: str
+
+    # Define field parsers as class variables
+    FIELDS: ClassVar[dict[str, Field[Any]]] = {
+        "ref": RequiredField[str](name="ref", parser=parse_elisp_string),
+        "type": RequiredField[str](name="type", parser=parse_elisp_string),
+    }
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any]) -> "OrgRoamRef":
+        """
+        Create an OrgRoamRef from a database row.
+
+        Args:
+            row: A dict-like object with column names as keys
+
+        Returns:
+            An OrgRoamRef instance
+        """
+        return cls(**parse_fields(row, cls.FIELDS))
+
+    def format(self) -> str:
+        """
+        Format the reference as a string.
+
+        Returns:
+            The formatted reference string (type:ref)
+        """
+        return f"{self.type}:{self.ref}"
+
+
+@dataclass(frozen=True)
 class OrgRoamLink:
     """Represents a link between nodes in the org-roam database."""
 
@@ -441,18 +477,24 @@ class OrgRoamDatabase:
             node_id: The ID of the node
 
         Returns:
-            List of reference strings
+            List of reference strings with type prefix
         """
         cursor = self.conn.execute(
             """
-            SELECT ref
+            SELECT ref, type
             FROM refs
             WHERE node_id = ?
             """,
             (node_id,),
         )
 
-        return parse_strings([row["ref"] for row in cursor])
+        formatted_refs = []
+        for row in cursor:
+            # Use the OrgRoamRef class to parse and format the reference
+            ref = OrgRoamRef.from_row(row)
+            formatted_refs.append(ref.format())
+
+        return formatted_refs
 
     def get_node_by_id(self, node_id: str) -> OrgRoamNode | None:
         """
