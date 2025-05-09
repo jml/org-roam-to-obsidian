@@ -924,7 +924,9 @@ This is a test document with several org-roam links:
 
 Link without description: <id:node1>
 Link with description: [Custom Description](id:node2)
+Link with description matching title: [First Node](id:node1)
 Link to unknown node: <id:unknown>
+Link to unknown node with description: [Missing Link](id:unknown2)
 """
 
         # Convert the links
@@ -941,6 +943,8 @@ This is a test document with several org-roam links:
 
 Link without description: [[First Node]]
 Link with description: [[Second Node|Custom Description]]
+Link with description matching title: [[First Node]]
 Link to unknown node: <id:unknown>
+Link to unknown node with description: [[Missing Link]]
 """
         assert converted_content == expected_converted_content

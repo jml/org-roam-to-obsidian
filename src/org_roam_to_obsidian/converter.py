@@ -175,14 +175,17 @@ class OrgRoamConverter:
                 node_id = match.group(3)
                 description = match.group(2)
 
-            # If we can't find the node ID, keep the original link
+            # If we can't find the node ID
             if node_id not in id_to_node:
                 log.warning(
                     "unknown_node_id_in_link",
                     node_id=node_id,
                     description=description,
                 )
-                # Return the original match
+                # If it has a description, convert to a wikilink with just the description
+                if description:
+                    return config.link_format.replace("${title}", description)
+                # Otherwise keep the original link
                 return match.group(0)
 
             # Get the node's title
@@ -191,6 +194,10 @@ class OrgRoamConverter:
 
             # If the link has a description and we want to preserve it, use link format with description
             if description and config.preserve_link_descriptions:
+                # If description exactly matches the node title, use basic link format
+                if description == title:
+                    return config.link_format.replace("${title}", title)
+                # Otherwise use the description format
                 return config.link_description_format.replace(
                     "${title}", title
                 ).replace("${description}", description)
