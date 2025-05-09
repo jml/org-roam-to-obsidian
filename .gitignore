@@ -30,3 +30,4 @@ ENV/
 .DS_Store
 **/.claude/settings.local.json
 /uv.lock
+.aider*

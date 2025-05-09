@@ -7,13 +7,13 @@
 ## Requirements
 
 - Python 3.11 or higher (required for standard library TOML support)
+- [Pandoc](https://pandoc.org/) must be installed
 
 ## Features
 
 - Converts Org-roam `.org` files to Obsidian-compatible Markdown
 - Preserves internal links and transforms them to Obsidian's `[[]]` format
 - Migrates tags and properties to YAML frontmatter
-- Handles attachments and embedded images
 - Maintains your note hierarchy and organization
 - Converts Org syntax (lists, tables, code blocks) to Markdown
 - Preserves backlinks and references
@@ -95,7 +95,7 @@ Org-roam links are converted to Obsidian's wiki-link format:
 
 **Org-roam:**
 ```org
-[[file:20210505T152634-example.org][Example Note]]
+[[id:20210505T152634][Example Note]]
 ```
 
 **Obsidian:**
@@ -107,7 +107,11 @@ Org-roam links are converted to Obsidian's wiki-link format:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+I might well be slow in reviewing it though.
+
 ## Acknowledgments
 
-- org-roam project for their excellent personal knowledge management system
-- Obsidian for their powerful note-taking application
+- [org-roam](https://www.orgroam.com/) project for their excellent personal knowledge management system
+- [Obsidian](https://obsidian.md/) for their lovely documentation
+- Claude, which wrote most of the code
+- [Pandoc](https://pandoc.org/), for being amazing
