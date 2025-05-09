@@ -43,12 +43,6 @@ log = get_logger(__name__)
     help="Path for the new Obsidian vault",
 )
 @click.option(
-    "--config",
-    "-c",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to a TOML config file (optional)",
-)
-@click.option(
     "--source-base-path",
     "-b",
     required=True,
@@ -64,7 +58,6 @@ log = get_logger(__name__)
 def main(
     source: Path,
     destination: Path,
-    config: Path | None,
     source_base_path: Path | None,
     dry_run: bool,
     verbose: bool,
@@ -82,7 +75,6 @@ def main(
             converter = OrgRoamConverter.from_paths(
                 source=source,
                 destination=destination,
-                config_path=config,
                 source_base_path=base_path,
                 dry_run=dry_run,
             )
