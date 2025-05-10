@@ -108,13 +108,15 @@ Org-roam links are converted to Obsidian's wiki-link format:
 This was almost entirely written with Claude Code, using the 3.7 Sonnet model.
 I've never written a code base with Claude Code before, so it was very much a learning experience.
 
-If it were hand-crafted.
+If it were hand-crafted, it would be different. Terser perhaps, with more functions and fewer methods, more iterators and fewer lists. There are almost certainly methods in the database layer that are completely unnecessary.
+I'm not going to do a thorough code review, because I want to move on.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request, although I might well be slow in reviewing it.
+`CLAUDE.md` has guidelines on how to make changes.
 
-I might well be slow in reviewing it though.
+You're welcome to file issues, but I'm unlikely to fix them without substantial compensation.
 
 ## Acknowledgments
 
